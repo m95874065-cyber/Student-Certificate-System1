@@ -6,9 +6,10 @@ from supabase import create_client
 import hashlib
 import secrets
 
-# ==================================================
-# PAGE SETTINGS
-# ==================================================
+
+# ============================================================
+# PAGE CONFIGURATION
+# ============================================================
 
 st.set_page_config(
     page_title="Student Certificate Management System",
@@ -17,9 +18,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ==================================================
-# SUPABASE CONNECTION
-# ==================================================
+
+# ============================================================
+# SUPABASE CONFIGURATION
+# ============================================================
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -31,69 +33,10 @@ supabase = create_client(
 
 STORAGE_BUCKET = "certificates"
 
-# ==================================================
-# CUSTOM CSS
-# ==================================================
 
-st.markdown("""
-<style>
-
-.main {
-    background-color: #f5f7fb;
-}
-
-.block-container {
-    padding-top: 2rem;
-    padding-bottom: 2rem;
-}
-
-.hero {
-    padding: 28px;
-    border-radius: 18px;
-    background: linear-gradient(135deg, #312e81, #4f46e5);
-    color: white;
-    margin-bottom: 25px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.10);
-}
-
-.hero h1 {
-    font-size: 32px;
-    margin-bottom: 5px;
-}
-
-.hero p {
-    font-size: 16px;
-    opacity: 0.9;
-}
-
-.login-card {
-    padding: 30px;
-    border-radius: 18px;
-    background: white;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-    border: 1px solid #e5e7eb;
-}
-
-.section-title {
-    font-size: 24px;
-    font-weight: 700;
-    color: #312e81;
-    margin-bottom: 15px;
-}
-
-.footer {
-    text-align: center;
-    color: #6b7280;
-    padding: 25px;
-    margin-top: 30px;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# ==================================================
+# ============================================================
 # PASSWORD SECURITY
-# ==================================================
+# ============================================================
 
 def hash_password(password):
 
@@ -127,23 +70,21 @@ def verify_password(password, stored_password):
             stored_hash
         )
 
-    except Exception:
+    except ValueError:
 
         return False
 
 
-# ==================================================
-# HELPER FUNCTIONS
-# ==================================================
+# ============================================================
+# DATABASE FUNCTIONS
+# ============================================================
 
 def get_students():
 
     response = (
         supabase
         .table("students")
-        .select(
-            "register_no,name,department,password"
-        )
+        .select("*")
         .execute()
     )
 
@@ -155,9 +96,7 @@ def get_student(register_no):
     response = (
         supabase
         .table("students")
-        .select(
-            "register_no,name,department,password"
-        )
+        .select("*")
         .eq(
             "register_no",
             register_no
@@ -177,9 +116,7 @@ def get_certificates(register_no=None):
     query = (
         supabase
         .table("certificates")
-        .select(
-            "id,register_no,certificate_name,status,deadline"
-        )
+        .select("*")
     )
 
     if register_no:
@@ -189,10 +126,14 @@ def get_certificates(register_no=None):
             register_no
         )
 
-    response = query.order("id").execute()
+    response = query.execute()
 
     return response.data or []
 
+
+# ============================================================
+# REGISTER NUMBER SORTING
+# ============================================================
 
 def get_numeric_register_number(register_no):
 
@@ -201,17 +142,22 @@ def get_numeric_register_number(register_no):
         if "BAI" in register_no:
 
             number_part = (
-                register_no.split("BAI")[-1]
+                register_no
+                .split("BAI")[-1]
             )
 
             return int(number_part)
 
         return 999999999
 
-    except Exception:
+    except:
 
         return 999999999
 
+
+# ============================================================
+# STORAGE FILE PATH
+# ============================================================
 
 def storage_file_path(
     register_no,
@@ -219,9 +165,9 @@ def storage_file_path(
     original_name
 ):
 
-    safe_name = certificate_name.replace(
-        " ",
-        "_"
+    safe_name = (
+        certificate_name
+        .replace(" ", "_")
     )
 
     return (
@@ -233,390 +179,518 @@ def storage_file_path(
     )
 
 
-# ==================================================
+# ============================================================
+# CUSTOM CSS
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+
+    .main-title {
+        font-size: 38px;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 5px;
+    }
+
+    .sub-title {
+        text-align: center;
+        font-size: 18px;
+        margin-bottom: 30px;
+    }
+
+    .section-title {
+        font-size: 25px;
+        font-weight: 700;
+        margin-top: 20px;
+        margin-bottom: 15px;
+    }
+
+    .login-card {
+        padding: 30px;
+        border-radius: 15px;
+        border: 1px solid #dddddd;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+    .info-card {
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #dddddd;
+        margin-bottom: 15px;
+    }
+
+    .footer {
+        text-align: center;
+        margin-top: 40px;
+        padding: 20px;
+        font-size: 14px;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# HEADER
+# ============================================================
+
+st.markdown(
+    """
+    <div class="main-title">
+        🎓 Student Certificate Management System
+    </div>
+
+    <div class="sub-title">
+        Certificate Tracking & Deadline Management
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
 # SESSION STATE
-# ==================================================
+# ============================================================
 
-if "student_logged_in" not in st.session_state:
+if "logged_in" not in st.session_state:
 
-    st.session_state.student_logged_in = False
-
-
-if "admin_logged_in" not in st.session_state:
-
-    st.session_state.admin_logged_in = False
+    st.session_state.logged_in = False
 
 
-if "student_register" not in st.session_state:
+if "user_type" not in st.session_state:
 
-    st.session_state.student_register = ""
-
-
-# ==================================================
-# HERO HEADER
-# ==================================================
-
-st.markdown("""
-<div class="hero">
-<h1>🎓 Student Certificate Management System</h1>
-<p>Certificate Tracking • Deadline Management • Student Progress</p>
-</div>
-""", unsafe_allow_html=True)
+    st.session_state.user_type = None
 
 
-# ==================================================
+if "register_no" not in st.session_state:
+
+    st.session_state.register_no = None
+
+
+# ============================================================
 # SIDEBAR
-# ==================================================
+# ============================================================
 
 with st.sidebar:
 
     st.image(
         "https://cdn-icons-png.flaticon.com/512/3135/3135755.png",
-        width=80
+        width=100
     )
 
-    st.title("Certificate System")
+    st.markdown(
+        "## 🎓 Certificate System"
+    )
 
     st.markdown("---")
 
-    login_type = st.radio(
-        "🔐 Login Type",
-        [
-            "Student Login",
-            "Admin Login"
-        ]
-    )
+    if not st.session_state.logged_in:
+
+        login_type = st.radio(
+            "Login Type",
+            [
+                "Student Login",
+                "Admin Login"
+            ]
+        )
+
+    else:
+
+        login_type = st.session_state.user_type
+
+        if login_type == "Student":
+
+            st.success("👨‍🎓 Student Logged In")
+
+        else:
+
+            st.success("👨‍💼 Admin Logged In")
+
+        st.markdown("---")
+
+        if st.button(
+            "🚪 Logout",
+            use_container_width=True
+        ):
+
+            st.session_state.logged_in = False
+            st.session_state.user_type = None
+            st.session_state.register_no = None
+
+            st.rerun()
 
     st.markdown("---")
 
     st.info(
-        "🎓 AI & DS College Certificate Tracking System"
+        """
+        📌 Students can check their certificates,
+        deadlines and upload completed certificates.
+
+        📌 Admin can manage students,
+        certificates and view analytics.
+        """
     )
 
 
-# ==================================================
-# STUDENT LOGIN
-# ==================================================
+# ============================================================
+# LOGIN SECTION
+# ============================================================
 
-if login_type == "Student Login":
+if not st.session_state.logged_in:
 
-    if not st.session_state.student_logged_in:
+    # ========================================================
+    # STUDENT LOGIN
+    # ========================================================
 
-        col1, col2, col3 = st.columns(
-            [1, 2, 1]
+    if login_type == "Student Login":
+
+        st.markdown(
+            '<div class="login-card">',
+            unsafe_allow_html=True
         )
 
-        with col2:
+        st.markdown(
+            "## 👨‍🎓 Student Login"
+        )
 
-            st.markdown(
-                '<div class="login-card">',
-                unsafe_allow_html=True
-            )
+        register_no = st.text_input(
+            "Register Number",
+            placeholder="Enter your register number"
+        )
 
-            st.markdown(
-                '<div class="section-title">'
-                '👨‍🎓 Student Login'
-                '</div>',
-                unsafe_allow_html=True
-            )
+        password = st.text_input(
+            "Password",
+            type="password",
+            placeholder="Enter your password"
+        )
 
-            st.write(
-                "Login using your college register number."
-            )
+        login_button = st.button(
+            "🔐 Login",
+            use_container_width=True
+        )
 
-            register_no = st.text_input(
-                "College Register Number",
-                placeholder="Enter register number"
-            )
+        st.markdown(
+            "</div>",
+            unsafe_allow_html=True
+        )
 
-            password = st.text_input(
-                "Password",
-                type="password",
-                placeholder="Enter password"
-            )
+        if login_button:
 
-            login_button = st.button(
-                "🔐 Login",
-                use_container_width=True
-            )
+            if not register_no or not password:
 
-            st.markdown(
-                "</div>",
-                unsafe_allow_html=True
-            )
+                st.warning(
+                    "⚠️ Please enter register number and password."
+                )
 
-            if login_button:
+            else:
 
                 student = get_student(
                     register_no.strip()
                 )
 
-                if (
-                    student
-                    and verify_password(
+                if student:
+
+                    stored_password = student["password"]
+
+                    # New hashed password
+                    if verify_password(
                         password,
-                        student["password"]
-                    )
-                ):
+                        stored_password
+                    ):
 
-                    st.session_state.student_logged_in = True
+                        st.session_state.logged_in = True
+                        st.session_state.user_type = "Student"
+                        st.session_state.register_no = (
+                            register_no.strip()
+                        )
 
-                    st.session_state.student_register = (
-                        register_no.strip()
-                    )
+                        st.rerun()
 
-                    st.rerun()
+                    # Old plain password
+                    elif stored_password == password:
+
+                        new_hashed_password = (
+                            hash_password(password)
+                        )
+
+                        (
+                            supabase
+                            .table("students")
+                            .update(
+                                {
+                                    "password":
+                                    new_hashed_password
+                                }
+                            )
+                            .eq(
+                                "register_no",
+                                register_no.strip()
+                            )
+                            .execute()
+                        )
+
+                        st.session_state.logged_in = True
+                        st.session_state.user_type = "Student"
+                        st.session_state.register_no = (
+                            register_no.strip()
+                        )
+
+                        st.rerun()
+
+                    else:
+
+                        st.error(
+                            "❌ Invalid password."
+                        )
 
                 else:
 
                     st.error(
-                        "❌ Invalid Register Number or Password"
+                        "❌ Student not found."
                     )
 
 
-    # ==================================================
-    # STUDENT DASHBOARD
-    # ==================================================
+    # ========================================================
+    # ADMIN LOGIN
+    # ========================================================
 
-    if st.session_state.student_logged_in:
+    else:
 
-        register_no = (
-            st.session_state.student_register
+        st.markdown(
+            '<div class="login-card">',
+            unsafe_allow_html=True
         )
 
-        student = get_student(
-            register_no
+        st.markdown(
+            "## 👨‍💼 Admin Login"
         )
 
-        if student:
+        admin_username = st.text_input(
+            "Username"
+        )
 
-            st.success(
-                f"👋 Welcome, {student['name']}!"
-            )
+        admin_password = st.text_input(
+            "Password",
+            type="password"
+        )
 
-            st.write(
-                "Track your certificates, deadlines and progress here."
-            )
+        admin_login_button = st.button(
+            "🔐 Admin Login",
+            use_container_width=True
+        )
 
-            # ==================================================
-            # STUDENT PROFILE
-            # ==================================================
+        st.markdown(
+            "</div>",
+            unsafe_allow_html=True
+        )
 
-            st.markdown(
-                '<div class="section-title">'
-                '👤 Student Profile'
-                '</div>',
-                unsafe_allow_html=True
-            )
+        if admin_login_button:
 
-            profile1, profile2, profile3 = st.columns(3)
+            if (
+                admin_username == "admin"
+                and admin_password == "admin123"
+            ):
 
-            with profile1:
+                st.session_state.logged_in = True
+                st.session_state.user_type = "Admin"
 
-                st.info(
-                    f"👤 Student Name\n\n"
-                    f"**{student['name']}**"
+                st.rerun()
+
+            else:
+
+                st.error(
+                    "❌ Invalid admin credentials."
                 )
 
-            with profile2:
 
-                st.info(
-                    f"🆔 Register Number\n\n"
-                    f"**{student['register_no']}**"
-                )
+# ============================================================
+# STUDENT DASHBOARD
+# ============================================================
 
-            with profile3:
+if (
+    st.session_state.logged_in
+    and st.session_state.user_type == "Student"
+):
 
-                st.info(
-                    f"🏫 Department\n\n"
-                    f"**{student['department']}**"
-                )
+    register_no = st.session_state.register_no
 
-            # ==================================================
-            # GET CERTIFICATES
-            # ==================================================
+    student = get_student(
+        register_no
+    )
 
-            certificates = get_certificates(
-                register_no
+    certificates = get_certificates(
+        register_no
+    )
+
+    st.markdown(
+        '<div class="section-title">👨‍🎓 Student Dashboard</div>',
+        unsafe_allow_html=True
+    )
+
+    if student:
+
+        # ----------------------------------------------------
+        # STUDENT INFORMATION
+        # ----------------------------------------------------
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+
+            st.info(
+                f"""
+                **👤 Name**
+
+                {student["name"]}
+                """
             )
 
-            total = len(certificates)
+        with col2:
 
-            completed = sum(
-                1
-                for certificate in certificates
-                if certificate["status"] == "Completed"
+            st.info(
+                f"""
+                **🆔 Register Number**
+
+                {student["register_no"]}
+                """
             )
 
-            pending = sum(
-                1
-                for certificate in certificates
-                if certificate["status"] == "Pending"
+        with col3:
+
+            st.info(
+                f"""
+                **🏫 Department**
+
+                {student["department"]}
+                """
             )
 
-            not_updated = sum(
-                1
-                for certificate in certificates
-                if certificate["status"] == "Status"
+        # ----------------------------------------------------
+        # CERTIFICATE COUNTS
+        # ----------------------------------------------------
+
+        total_certificates = len(
+            certificates
+        )
+
+        completed_certificates = sum(
+            1
+            for c in certificates
+            if c["status"] == "Completed"
+        )
+
+        pending_certificates = sum(
+            1
+            for c in certificates
+            if c["status"] == "Pending"
+        )
+
+        not_updated_certificates = sum(
+            1
+            for c in certificates
+            if c["status"] == "Status"
+        )
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+
+            st.metric(
+                "📜 Total",
+                total_certificates
             )
+
+        with col2:
+
+            st.metric(
+                "✅ Completed",
+                completed_certificates
+            )
+
+        with col3:
+
+            st.metric(
+                "⏳ Pending",
+                pending_certificates
+            )
+
+        with col4:
+
+            st.metric(
+                "❓ Not Updated",
+                not_updated_certificates
+            )
+
+        # ----------------------------------------------------
+        # PROGRESS
+        # ----------------------------------------------------
+
+        if total_certificates > 0:
 
             progress = (
-                completed / total
-                if total > 0
-                else 0
+                completed_certificates
+                / total_certificates
             )
 
-            # ==================================================
-            # CERTIFICATE SUMMARY
-            # ==================================================
+        else:
 
-            st.markdown(
-                '<div class="section-title">'
-                '📊 Certificate Summary'
-                '</div>',
-                unsafe_allow_html=True
+            progress = 0
+
+        st.markdown(
+            "### 📈 Certificate Progress"
+        )
+
+        st.progress(
+            progress
+        )
+
+        st.write(
+            f"**{completed_certificates} / "
+            f"{total_certificates} certificates completed "
+            f"({progress * 100:.0f}%)**"
+        )
+
+        # ----------------------------------------------------
+        # PIE CHART
+        # ----------------------------------------------------
+
+        if total_certificates > 0:
+
+            chart_data = pd.DataFrame(
+                {
+                    "Status": [
+                        "Completed",
+                        "Pending",
+                        "Not Updated"
+                    ],
+                    "Count": [
+                        completed_certificates,
+                        pending_certificates,
+                        not_updated_certificates
+                    ]
+                }
             )
 
-            col1, col2, col3, col4 = st.columns(4)
+            chart_data = chart_data[
+                chart_data["Count"] > 0
+            ]
 
-            with col1:
-
-                st.metric(
-                    "📜 Total Certificates",
-                    total
-                )
-
-            with col2:
-
-                st.metric(
-                    "✅ Completed",
-                    completed
-                )
-
-            with col3:
-
-                st.metric(
-                    "⏳ Pending",
-                    pending
-                )
-
-            with col4:
-
-                st.metric(
-                    "📈 Progress",
-                    f"{int(progress * 100)}%"
-                )
-
-            if not_updated > 0:
-
-                st.info(
-                    f"ℹ️ {not_updated} certificate(s) "
-                    "waiting for student response."
-                )
-
-            # ==================================================
-            # PROGRESS
-            # ==================================================
-
-            progress_col1, progress_col2 = st.columns(
-                [2, 1]
-            )
-
-            with progress_col1:
-
-                st.markdown(
-                    "### 📈 Overall Certificate Progress"
-                )
-
-                st.progress(progress)
-
-                st.write(
-                    f"**{completed} out of {total} "
-                    "certificates completed**"
-                )
-
-                if total == 0:
-
-                    st.info(
-                        "ℹ️ No certificates assigned yet."
-                    )
-
-                elif progress == 1:
-
-                    st.success(
-                        "🎉 Excellent! All certificates "
-                        "are completed."
-                    )
-
-                elif progress >= 0.5:
-
-                    st.info(
-                        "👍 Good progress! Keep completing "
-                        "your certificates."
-                    )
-
-                else:
-
-                    st.warning(
-                        "⚠️ You have several certificates pending."
-                    )
-
-            with progress_col2:
-
-                st.markdown(
-                    "### 🎯 Completion"
-                )
-
-                st.metric(
-                    "Completion Rate",
-                    f"{int(progress * 100)}%"
-                )
-
-            # ==================================================
-            # PIE CHART
-            # ==================================================
-
-            if total > 0:
+            if not chart_data.empty:
 
                 st.markdown(
                     "### 🥧 Certificate Status"
                 )
 
-                chart_data = pd.DataFrame(
-                    {
-                        "Status": [
-                            "Completed",
-                            "Pending",
-                            "Not Updated"
-                        ],
-                        "Count": [
-                            completed,
-                            pending,
-                            not_updated
-                        ]
-                    }
-                )
-
-                chart_data = chart_data[
-                    chart_data["Count"] > 0
-                ]
-
                 fig = px.pie(
                     chart_data,
                     names="Status",
                     values="Count",
-                    hole=0.45,
-                    title="Certificate Completion Status"
-                )
-
-                fig.update_layout(
-                    height=400,
-                    margin=dict(
-                        l=20,
-                        r=20,
-                        t=60,
-                        b=20
-                    )
+                    title="My Certificate Status"
                 )
 
                 st.plotly_chart(
@@ -624,268 +698,218 @@ if login_type == "Student Login":
                     use_container_width=True
                 )
 
-            st.divider()
+        # ----------------------------------------------------
+        # CERTIFICATE DETAILS
+        # ----------------------------------------------------
 
-            # ==================================================
-            # DEADLINE ALERTS
-            # ==================================================
+        st.markdown(
+            "### 📋 Certificate Details"
+        )
 
-            st.markdown(
-                "### 🔔 Deadline Alerts"
-            )
-
-            deadline_found = False
+        if certificates:
 
             for certificate in certificates:
 
-                name = certificate[
-                    "certificate_name"
-                ]
+                certificate_name = (
+                    certificate["certificate_name"]
+                )
 
-                status = certificate[
-                    "status"
-                ]
+                status = certificate["status"]
 
-                deadline = certificate[
-                    "deadline"
-                ]
+                deadline = certificate["deadline"]
+
+                if status == "Completed":
+
+                    st.success(
+                        f"📜 {certificate_name} | "
+                        f"Status: ✅ Completed | "
+                        f"Deadline: {deadline}"
+                    )
+
+                elif status == "Pending":
+
+                    st.warning(
+                        f"📜 {certificate_name} | "
+                        f"Status: ⏳ Pending | "
+                        f"Deadline: {deadline}"
+                    )
+
+                else:
+
+                    st.info(
+                        f"📜 {certificate_name} | "
+                        f"Status: ❓ Not Updated | "
+                        f"Deadline: {deadline}"
+                    )
+
+                # ------------------------------------------------
+                # STUDENT STATUS UPDATE
+                # ------------------------------------------------
+
+                if status == "Completed":
+
+                    answer = st.radio(
+                        "Did you complete this certificate?",
+                        ["Yes", "No"],
+                        index=0,
+                        key=f"answer_{certificate['id']}"
+                    )
+
+                elif status == "Pending":
+
+                    answer = st.radio(
+                        "Did you complete this certificate?",
+                        ["Yes", "No"],
+                        index=1,
+                        key=f"answer_{certificate['id']}"
+                    )
+
+                else:
+
+                    answer = st.radio(
+                        "Did you complete this certificate?",
+                        ["Yes", "No"],
+                        index=None,
+                        key=f"answer_{certificate['id']}"
+                    )
+
+                if answer:
+
+                    new_status = (
+                        "Completed"
+                        if answer == "Yes"
+                        else "Pending"
+                    )
+
+                    if new_status != status:
+
+                        (
+                            supabase
+                            .table("certificates")
+                            .update(
+                                {
+                                    "status":
+                                    new_status
+                                }
+                            )
+                            .eq(
+                                "id",
+                                certificate["id"]
+                            )
+                            .execute()
+                        )
+
+                        st.success(
+                            "✅ Certificate status updated."
+                        )
+
+                        st.rerun()
+
+                # ------------------------------------------------
+                # DEADLINE ALERT
+                # ------------------------------------------------
 
                 try:
 
-                    deadline_date = None
+                    deadline_date = datetime.strptime(
+                        deadline,
+                        "%Y-%m-%d"
+                    ).date()
 
-                    try:
+                    today = datetime.today().date()
 
-                        deadline_date = datetime.strptime(
-                            deadline,
-                            "%d %b %Y"
-                        )
+                    days_left = (
+                        deadline_date - today
+                    ).days
 
-                    except ValueError:
+                    if status != "Completed":
 
-                        pass
+                        if days_left < 0:
 
-                    if deadline_date is None:
-
-                        try:
-
-                            deadline_date = datetime.strptime(
-                                deadline,
-                                "%A %d/%m/%Y"
+                            st.error(
+                                "🚨 Deadline expired!"
                             )
 
-                        except ValueError:
+                        elif days_left <= 3:
 
-                            pass
+                            st.error(
+                                f"⚠️ Only {days_left} "
+                                f"day(s) left!"
+                            )
 
-                    if deadline_date is not None:
+                        elif days_left <= 7:
 
-                        today = datetime.now()
+                            st.warning(
+                                f"⏰ {days_left} "
+                                f"day(s) remaining."
+                            )
 
-                        days_left = (
-                            deadline_date.date()
-                            - today.date()
-                        ).days
-
-                        if status != "Completed":
-
-                            if days_left < 0:
-
-                                st.error(
-                                    f"🔴 **{name}** — "
-                                    f"Deadline expired "
-                                    f"({abs(days_left)} days ago)"
-                                )
-
-                                deadline_found = True
-
-                            elif days_left == 0:
-
-                                st.error(
-                                    f"🚨 **{name}** — "
-                                    "Deadline is TODAY!"
-                                )
-
-                                deadline_found = True
-
-                            elif days_left <= 7:
-
-                                st.warning(
-                                    f"🟡 **{name}** — "
-                                    f"Due in {days_left} days "
-                                    f"({deadline})"
-                                )
-
-                                deadline_found = True
-
-                except Exception:
+                except:
 
                     pass
 
-            if not deadline_found:
+                # ------------------------------------------------
+                # UPLOAD CERTIFICATE
+                # ------------------------------------------------
 
-                st.success(
-                    "✅ No urgent certificate deadlines."
-                )
-
-            st.divider()
-
-            # ==================================================
-            # MY CERTIFICATES
-            # ==================================================
-
-            st.markdown(
-                "### 📜 My Certificates"
-            )
-
-            if not certificates:
-
-                st.info(
-                    "No certificates assigned yet."
-                )
-
-            else:
-
-                for certificate in certificates:
-
-                    certificate_id = certificate["id"]
-
-                    name = certificate[
-                        "certificate_name"
-                    ]
-
-                    status = certificate[
-                        "status"
-                    ]
-
-                    deadline = certificate[
-                        "deadline"
-                    ]
+                if status == "Completed":
 
                     st.markdown(
-                        f"#### 📜 {name}"
+                        "**📤 Upload Completed Certificate**"
                     )
 
-                    st.write(
-                        f"**Deadline:** {deadline}"
+                    uploaded_file = st.file_uploader(
+                        "Choose certificate file",
+                        type=[
+                            "pdf",
+                            "png",
+                            "jpg",
+                            "jpeg"
+                        ],
+                        key=f"upload_{certificate['id']}"
                     )
 
-                    st.markdown(
-                        "##### ❓ Did you complete this certificate?"
-                    )
+                    if uploaded_file:
 
-                    if status == "Completed":
+                        if st.button(
+                            "📤 Upload Certificate",
+                            key=f"upload_btn_{certificate['id']}"
+                        ):
 
-                        student_answer = st.radio(
-                            f"Select answer for {name}",
-                            ["Yes", "No"],
-                            index=0,
-                            key=f"answer_{certificate_id}"
-                        )
-
-                    elif status == "Pending":
-
-                        student_answer = st.radio(
-                            f"Select answer for {name}",
-                            ["Yes", "No"],
-                            index=1,
-                            key=f"answer_{certificate_id}"
-                        )
-
-                    else:
-
-                        student_answer = st.radio(
-                            f"Select answer for {name}",
-                            ["Yes", "No"],
-                            index=None,
-                            key=f"answer_{certificate_id}"
-                        )
-
-                    if student_answer is not None:
-
-                        new_status = (
-                            "Completed"
-                            if student_answer == "Yes"
-                            else "Pending"
-                        )
-
-                        if new_status != status:
-
-                            supabase.table(
-                                "certificates"
-                            ).update(
-                                {
-                                    "status": new_status
-                                }
-                            ).eq(
-                                "id",
-                                certificate_id
-                            ).execute()
-
-                            st.rerun()
-
-                    if student_answer == "Yes":
-
-                        st.success(
-                            "✅ Completed"
-                        )
-
-                        st.caption(
-                            "🎉 You have completed this certificate."
-                        )
-
-                        uploaded_file = st.file_uploader(
-                            f"📤 Upload {name} Certificate",
-                            type=[
-                                "pdf",
-                                "png",
-                                "jpg",
-                                "jpeg"
-                            ],
-                            key="upload_" + str(
-                                certificate_id
-                            )
-                        )
-
-                        if uploaded_file is not None:
-
-                            original_name = (
+                            file_path = storage_file_path(
+                                register_no,
+                                certificate_name,
                                 uploaded_file.name
                             )
 
-                            file_path = (
-                                storage_file_path(
-                                    register_no,
-                                    name,
-                                    original_name
-                                )
+                            file_bytes = (
+                                uploaded_file.getvalue()
+                            )
+
+                            content_type = (
+                                uploaded_file.type
+                                or "application/octet-stream"
                             )
 
                             try:
 
-                                file_bytes = (
-                                    uploaded_file.getvalue()
-                                )
-
-                                content_type = (
-                                    uploaded_file.type
-                                    or "application/octet-stream"
-                                )
-
-                                supabase.storage.from_(
-                                    STORAGE_BUCKET
-                                ).upload(
-                                    file_path,
-                                    file_bytes,
-                                    {
-                                        "content-type": content_type,
-                                        "upsert": True
-                                    }
+                                (
+                                    supabase
+                                    .storage
+                                    .from_(STORAGE_BUCKET)
+                                    .upload(
+                                        file_path,
+                                        file_bytes,
+                                        {
+                                            "content-type":
+                                            content_type,
+                                            "upsert": True
+                                        }
+                                    )
                                 )
 
                                 st.success(
-                                    f"✅ {name} certificate "
-                                    "uploaded successfully!"
+                                    "✅ Certificate uploaded successfully."
                                 )
 
                             except Exception as e:
@@ -894,370 +918,200 @@ if login_type == "Student Login":
                                     f"❌ Upload failed: {e}"
                                 )
 
-                    elif student_answer == "No":
+        else:
 
-                        st.warning(
-                            "⏳ Pending"
-                        )
-
-                        st.caption(
-                            "📌 Please complete this certificate "
-                            "before the deadline."
-                        )
-
-                    else:
-
-                        st.info(
-                            "ℹ️ Please select Yes or No."
-                        )
-
-                    st.divider()
-
-            # ==================================================
-            # STUDENT LOGOUT
-            # ==================================================
-
-            logout_col1, logout_col2, logout_col3 = st.columns(
-                [1, 1, 1]
+            st.info(
+                "📭 No certificates assigned yet."
             )
 
-            with logout_col2:
 
-                if st.button(
-                    "🚪 Student Logout",
-                    use_container_width=True
-                ):
+# ============================================================
+# ADMIN DASHBOARD
+# ============================================================
 
-                    st.session_state.student_logged_in = False
+if (
+    st.session_state.logged_in
+    and st.session_state.user_type == "Admin"
+):
 
-                    st.session_state.student_register = ""
+    st.markdown(
+        '<div class="section-title">👨‍💼 Admin Dashboard</div>',
+        unsafe_allow_html=True
+    )
 
-                    st.rerun()
+    all_students = get_students()
 
+    all_certificates = get_certificates()
 
-# ==================================================
-# ADMIN LOGIN
-# ==================================================
+    # --------------------------------------------------------
+    # SORT STUDENTS
+    # --------------------------------------------------------
 
-else:
+    all_students = sorted(
+        all_students,
+        key=lambda x:
+        get_numeric_register_number(
+            x["register_no"]
+        )
+    )
 
-    if not st.session_state.admin_logged_in:
+    # --------------------------------------------------------
+    # STATISTICS
+    # --------------------------------------------------------
 
-        col1, col2, col3 = st.columns(
-            [1, 2, 1]
+    total_students = len(
+        all_students
+    )
+
+    total_completed = sum(
+        1
+        for c in all_certificates
+        if c["status"] == "Completed"
+    )
+
+    total_pending = sum(
+        1
+        for c in all_certificates
+        if c["status"] == "Pending"
+    )
+
+    total_not_updated = sum(
+        1
+        for c in all_certificates
+        if c["status"] == "Status"
+    )
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+
+        st.metric(
+            "👨‍🎓 Total Students",
+            total_students
         )
 
-        with col2:
+    with col2:
 
-            st.markdown(
-                '<div class="login-card">',
-                unsafe_allow_html=True
-            )
+        st.metric(
+            "✅ Completed",
+            total_completed
+        )
 
-            st.markdown(
-                '<div class="section-title">'
-                '👨‍🏫 Admin Login'
-                '</div>',
-                unsafe_allow_html=True
-            )
+    with col3:
 
-            username = st.text_input(
-                "Admin Username",
-                key="admin_username",
-                placeholder="admin"
-            )
+        st.metric(
+            "⏳ Pending",
+            total_pending
+        )
 
-            admin_password = st.text_input(
-                "Admin Password",
-                type="password",
-                key="admin_password",
-                placeholder="Enter password"
-            )
+    with col4:
 
-            if st.button(
-                "🔐 Admin Login",
-                use_container_width=True
+        st.metric(
+            "❓ Not Updated",
+            total_not_updated
+        )
+
+    st.markdown("---")
+
+    # --------------------------------------------------------
+    # ADMIN MENU
+    # --------------------------------------------------------
+
+    admin_menu = st.selectbox(
+        "Admin Menu",
+        [
+            "Add New Student",
+            "Remove Student",
+            "Add Certificate",
+            "Remove Certificate",
+            "Student List",
+            "Certificate Overview",
+            "Certificate Analytics",
+            "Update Certificate",
+            "Uploaded Certificates"
+        ]
+    )
+
+
+    # ========================================================
+    # ADD NEW STUDENT
+    # ========================================================
+
+    if admin_menu == "Add New Student":
+
+        st.subheader(
+            "➕ Add New Student"
+        )
+
+        new_register_no = st.text_input(
+            "Register Number"
+        )
+
+        new_name = st.text_input(
+            "Student Name"
+        )
+
+        new_department = st.text_input(
+            "Department"
+        )
+
+        new_password = st.text_input(
+            "Student Password",
+            type="password"
+        )
+
+        if st.button(
+            "➕ Add Student"
+        ):
+
+            if (
+                new_register_no
+                and new_name
+                and new_department
+                and new_password
             ):
 
-                if (
-                    username == "admin"
-                    and admin_password == "admin123"
-                ):
+                existing_student = get_student(
+                    new_register_no.strip()
+                )
 
-                    st.session_state.admin_logged_in = True
-
-                    st.rerun()
-
-                else:
+                if existing_student:
 
                     st.error(
-                        "❌ Invalid Admin Username or Password"
+                        "❌ Student already exists."
                     )
-
-            st.markdown(
-                "</div>",
-                unsafe_allow_html=True
-            )
-
-
-    # ==================================================
-    # ADMIN DASHBOARD
-    # ==================================================
-
-    if st.session_state.admin_logged_in:
-
-        st.success(
-            "Admin Login Successful! 🎉"
-        )
-
-        st.markdown(
-            '<div class="section-title">'
-            '📊 Admin Dashboard'
-            '</div>',
-            unsafe_allow_html=True
-        )
-
-        # ==================================================
-        # STATISTICS
-        # ==================================================
-
-        all_students = get_students()
-
-        all_certificates = get_certificates()
-
-        total_students = len(
-            all_students
-        )
-
-        total_completed = sum(
-            1
-            for certificate in all_certificates
-            if certificate["status"] == "Completed"
-        )
-
-        total_pending = sum(
-            1
-            for certificate in all_certificates
-            if certificate["status"] == "Pending"
-        )
-
-        total_not_updated = sum(
-            1
-            for certificate in all_certificates
-            if certificate["status"] == "Status"
-        )
-
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-
-            st.metric(
-                "👥 Total Students",
-                total_students
-            )
-
-        with col2:
-
-            st.metric(
-                "✅ Completed Certificates",
-                total_completed
-            )
-
-        with col3:
-
-            st.metric(
-                "⏳ Pending Certificates",
-                total_pending
-            )
-
-        with col4:
-
-            st.metric(
-                "❓ Not Updated",
-                total_not_updated
-            )
-
-        # ==================================================
-        # ADMIN MENU
-        # ==================================================
-
-        st.divider()
-
-        admin_menu = st.selectbox(
-            "🛠️ Admin Menu",
-            [
-                "Add New Student",
-                "Remove Student",
-                "Add Certificate",
-                "Remove Certificate",
-                "Student List",
-                "Certificate Overview",
-                "Update Certificate",
-                "Uploaded Certificates"
-            ]
-        )
-
-        # ==================================================
-        # ADD STUDENT
-        # ==================================================
-
-        if admin_menu == "Add New Student":
-
-            st.subheader(
-                "➕ Add New Student"
-            )
-
-            new_register = st.text_input(
-                "Register Number",
-                key="new_register"
-            )
-
-            new_name = st.text_input(
-                "Student Name",
-                key="new_name"
-            )
-
-            new_department = st.text_input(
-                "Department",
-                key="new_department"
-            )
-
-            new_password = st.text_input(
-                "Student Password",
-                type="password",
-                key="new_password"
-            )
-
-            if st.button(
-                "➕ Add Student"
-            ):
-
-                if (
-                    new_register
-                    and new_name
-                    and new_department
-                    and new_password
-                ):
-
-                    existing_student = get_student(
-                        new_register.strip()
-                    )
-
-                    if existing_student:
-
-                        st.error(
-                            "❌ Register Number already exists!"
-                        )
-
-                    else:
-
-                        try:
-
-                            hashed_password = hash_password(
-                                new_password
-                            )
-
-                            supabase.table(
-                                "students"
-                            ).insert(
-                                {
-                                    "register_no":
-                                        new_register.strip(),
-
-                                    "name":
-                                        new_name.strip(),
-
-                                    "department":
-                                        new_department.strip(),
-
-                                    "password":
-                                        hashed_password
-                                }
-                            ).execute()
-
-                            st.success(
-                                "✅ Student added successfully!"
-                            )
-
-                        except Exception as e:
-
-                            st.error(
-                                f"❌ Unable to add student: {e}"
-                            )
 
                 else:
 
-                    st.warning(
-                        "⚠️ Please fill all fields"
+                    hashed_password = hash_password(
+                        new_password
                     )
-
-        # ==================================================
-        # REMOVE STUDENT
-        # ==================================================
-
-        elif admin_menu == "Remove Student":
-
-            st.subheader(
-                "🗑️ Remove Student"
-            )
-
-            students_for_delete = sorted(
-                all_students,
-                key=lambda x:
-                    get_numeric_register_number(
-                        x["register_no"]
-                    )
-            )
-
-            if students_for_delete:
-
-                student_options = {
-                    f"{student['name']} - "
-                    f"{student['register_no']}":
-                    student["register_no"]
-                    for student in students_for_delete
-                }
-
-                selected_student = st.selectbox(
-                    "Select Student to Remove",
-                    list(student_options.keys()),
-                    key="delete_student_select"
-                )
-
-                selected_register = student_options[
-                    selected_student
-                ]
-
-                st.warning(
-                    "⚠️ Deleting this student will also "
-                    "delete all certificates assigned "
-                    "to this student."
-                )
-
-                if st.button(
-                    "🗑️ Delete Student",
-                    type="primary"
-                ):
 
                     try:
 
-                        supabase.table(
-                            "certificates"
-                        ).delete().eq(
-                            "register_no",
-                            selected_register
-                        ).execute()
+                        (
+                            supabase
+                            .table("students")
+                            .insert(
+                                {
+                                    "register_no":
+                                    new_register_no.strip(),
 
-                        supabase.table(
-                            "students"
-                        ).delete().eq(
-                            "register_no",
-                            selected_register
-                        ).execute()
+                                    "name":
+                                    new_name.strip(),
+
+                                    "department":
+                                    new_department.strip(),
+
+                                    "password":
+                                    hashed_password
+                                }
+                            )
+                            .execute()
+                        )
 
                         st.success(
-                            "✅ Student and their certificates "
-                            "deleted successfully!"
+                            "✅ Student added successfully."
                         )
 
                         st.rerun()
@@ -1265,221 +1119,168 @@ else:
                     except Exception as e:
 
                         st.error(
-                            f"❌ Unable to delete student: {e}"
+                            f"❌ Error: {e}"
                         )
 
             else:
 
-                st.info(
-                    "No students available to remove."
+                st.warning(
+                    "⚠️ Please fill all fields."
                 )
 
-        # ==================================================
-        # ADD CERTIFICATE
-        # ==================================================
 
-        elif admin_menu == "Add Certificate":
+    # ========================================================
+    # REMOVE STUDENT
+    # ========================================================
 
-            st.subheader(
-                "📜 Add Certificate"
+    elif admin_menu == "Remove Student":
+
+        st.subheader(
+            "🗑️ Remove Student"
+        )
+
+        if all_students:
+
+            student_options = [
+                f'{s["register_no"]} - {s["name"]}'
+                for s in all_students
+            ]
+
+            selected_student = st.selectbox(
+                "Select Student",
+                student_options
             )
 
-            certificate_register = st.text_input(
-                "Student Register Number",
-                key="certificate_register"
+            selected_register = (
+                selected_student
+                .split(" - ")[0]
+            )
+
+            if st.button(
+                "🗑️ Remove Student"
+            ):
+
+                try:
+
+                    (
+                        supabase
+                        .table("certificates")
+                        .delete()
+                        .eq(
+                            "register_no",
+                            selected_register
+                        )
+                        .execute()
+                    )
+
+                    (
+                        supabase
+                        .table("students")
+                        .delete()
+                        .eq(
+                            "register_no",
+                            selected_register
+                        )
+                        .execute()
+                    )
+
+                    st.success(
+                        "✅ Student removed successfully."
+                    )
+
+                    st.rerun()
+
+                except Exception as e:
+
+                    st.error(
+                        f"❌ Error: {e}"
+                    )
+
+        else:
+
+            st.info(
+                "📭 No students available."
+            )
+
+
+    # ========================================================
+    # ADD CERTIFICATE
+    # ========================================================
+
+    elif admin_menu == "Add Certificate":
+
+        st.subheader(
+            "📜 Add Certificate"
+        )
+
+        if all_students:
+
+            student_options = [
+                f'{s["register_no"]} - {s["name"]}'
+                for s in all_students
+            ]
+
+            selected_student = st.selectbox(
+                "Select Student",
+                student_options
+            )
+
+            selected_register = (
+                selected_student
+                .split(" - ")[0]
             )
 
             certificate_name = st.text_input(
-                "Certificate Name",
-                key="certificate_name"
+                "Certificate Name"
             )
 
             certificate_status = st.selectbox(
-                "Initial Certificate Status",
+                "Initial Status",
                 [
                     "Status",
                     "Pending",
                     "Completed"
-                ],
-                key="certificate_status"
+                ]
             )
 
-            st.caption(
-                "ℹ️ If 'Status' is selected, the student "
-                "will choose Yes or No."
-            )
-
-            certificate_deadline = st.text_input(
-                "Deadline",
-                key="certificate_deadline",
-                placeholder="Example: 15 Sep 2026"
+            certificate_deadline = st.date_input(
+                "Deadline"
             )
 
             if st.button(
                 "➕ Add Certificate"
             ):
 
-                if (
-                    certificate_register
-                    and certificate_name
-                    and certificate_deadline
-                ):
-
-                    student_exists = get_student(
-                        certificate_register.strip()
-                    )
-
-                    if student_exists:
-
-                        existing_certificates = get_certificates(
-                            certificate_register.strip()
-                        )
-
-                        duplicate = any(
-                            certificate[
-                                "certificate_name"
-                            ].lower()
-                            ==
-                            certificate_name.strip().lower()
-                            for certificate
-                            in existing_certificates
-                        )
-
-                        if duplicate:
-
-                            st.error(
-                                "❌ This certificate already "
-                                "exists for this student!"
-                            )
-
-                        else:
-
-                            try:
-
-                                supabase.table(
-                                    "certificates"
-                                ).insert(
-                                    {
-                                        "register_no":
-                                            certificate_register.strip(),
-
-                                        "certificate_name":
-                                            certificate_name.strip(),
-
-                                        "status":
-                                            certificate_status,
-
-                                        "deadline":
-                                            certificate_deadline.strip()
-                                    }
-                                ).execute()
-
-                                st.success(
-                                    "✅ Certificate added successfully!"
-                                )
-
-                            except Exception as e:
-
-                                st.error(
-                                    f"❌ Unable to add certificate: {e}"
-                                )
-
-                    else:
-
-                        st.error(
-                            "❌ Student Register Number not found!"
-                        )
-
-                else:
-
-                    st.warning(
-                        "⚠️ Please fill all fields"
-                    )
-
-        # ==================================================
-        # REMOVE CERTIFICATE
-        # ==================================================
-
-        elif admin_menu == "Remove Certificate":
-
-            st.subheader(
-                "🗑️ Remove Certificate"
-            )
-
-            certificates_for_delete = sorted(
-                all_certificates,
-                key=lambda x: (
-                    get_numeric_register_number(
-                        x["register_no"]
-                    ),
-                    x["certificate_name"]
-                )
-            )
-
-            if certificates_for_delete:
-
-                certificate_options = {}
-
-                for certificate in certificates_for_delete:
-
-                    certificate_id = certificate["id"]
-
-                    register = certificate[
-                        "register_no"
-                    ]
-
-                    name = certificate[
-                        "certificate_name"
-                    ]
-
-                    status = certificate[
-                        "status"
-                    ]
-
-                    display_name = (
-                        f"{register} - "
-                        f"{name} ({status})"
-                    )
-
-                    certificate_options[
-                        display_name
-                    ] = certificate_id
-
-                selected_certificate = st.selectbox(
-                    "Select Certificate to Remove",
-                    list(
-                        certificate_options.keys()
-                    ),
-                    key="delete_certificate_select"
-                )
-
-                selected_certificate_id = (
-                    certificate_options[
-                        selected_certificate
-                    ]
-                )
-
-                st.warning(
-                    "⚠️ This certificate record will be "
-                    "permanently deleted."
-                )
-
-                if st.button(
-                    "🗑️ Delete Certificate",
-                    type="primary"
-                ):
+                if certificate_name:
 
                     try:
 
-                        supabase.table(
-                            "certificates"
-                        ).delete().eq(
-                            "id",
-                            selected_certificate_id
-                        ).execute()
+                        (
+                            supabase
+                            .table("certificates")
+                            .insert(
+                                {
+                                    "register_no":
+                                    selected_register,
+
+                                    "certificate_name":
+                                    certificate_name.strip(),
+
+                                    "status":
+                                    certificate_status,
+
+                                    "deadline":
+                                    certificate_deadline
+                                    .strftime(
+                                        "%Y-%m-%d"
+                                    )
+                                }
+                            )
+                            .execute()
+                        )
 
                         st.success(
-                            "✅ Certificate deleted successfully!"
+                            "✅ Certificate added successfully."
                         )
 
                         st.rerun()
@@ -1487,470 +1288,758 @@ else:
                     except Exception as e:
 
                         st.error(
-                            f"❌ Unable to delete certificate: {e}"
-                        )
-
-            else:
-
-                st.info(
-                    "No certificates available to remove."
-                )
-
-        # ==================================================
-        # STUDENT LIST
-        # ==================================================
-
-        elif admin_menu == "Student List":
-
-            st.subheader(
-                "👥 Student List"
-            )
-
-            students = sorted(
-                all_students,
-                key=lambda x:
-                    get_numeric_register_number(
-                        x["register_no"]
-                    )
-            )
-
-            if students:
-
-                student_df = pd.DataFrame(
-                    [
-                        {
-                            "Register Number":
-                                student["register_no"],
-
-                            "Name":
-                                student["name"],
-
-                            "Department":
-                                student["department"]
-                        }
-
-                        for student in students
-                    ]
-                )
-
-                st.dataframe(
-                    student_df,
-                    use_container_width=True,
-                    hide_index=True
-                )
-
-            else:
-
-                st.info(
-                    "No students found."
-                )
-
-        # ==================================================
-        # CERTIFICATE OVERVIEW
-        # ==================================================
-
-        elif admin_menu == "Certificate Overview":
-
-            st.subheader(
-                "📜 Certificate Overview"
-            )
-
-            st.write(
-                "📁 Select a student to view all their certificates."
-            )
-
-            all_students_sorted = sorted(
-                all_students,
-                key=lambda x:
-                    get_numeric_register_number(
-                        x["register_no"]
-                    )
-            )
-
-            if all_students_sorted:
-
-                for student_data in all_students_sorted:
-
-                    student_register = student_data[
-                        "register_no"
-                    ]
-
-                    student_name = student_data[
-                        "name"
-                    ]
-
-                    student_department = student_data[
-                        "department"
-                    ]
-
-                    student_certificates = get_certificates(
-                        student_register
-                    )
-
-                    certificate_count = len(
-                        student_certificates
-                    )
-
-                    with st.expander(
-                        f"📁 {student_name}  |  "
-                        f"🆔 {student_register}  |  "
-                        f"📜 {certificate_count} Certificate(s)",
-                        expanded=False
-                    ):
-
-                        st.markdown(
-                            f"### 👤 {student_name}"
-                        )
-
-                        profile_col1, profile_col2, profile_col3 = (
-                            st.columns(3)
-                        )
-
-                        with profile_col1:
-
-                            st.info(
-                                f"🆔 Register Number\n\n"
-                                f"**{student_register}**"
-                            )
-
-                        with profile_col2:
-
-                            st.info(
-                                f"👤 Student Name\n\n"
-                                f"**{student_name}**"
-                            )
-
-                        with profile_col3:
-
-                            st.info(
-                                f"🏫 Department\n\n"
-                                f"**{student_department}**"
-                            )
-
-                        st.divider()
-
-                        if student_certificates:
-
-                            st.markdown(
-                                "### 📜 All Certificates"
-                            )
-
-                            for certificate in (
-                                student_certificates
-                            ):
-
-                                certificate_name = (
-                                    certificate[
-                                        "certificate_name"
-                                    ]
-                                )
-
-                                certificate_status = (
-                                    certificate[
-                                        "status"
-                                    ]
-                                )
-
-                                certificate_deadline = (
-                                    certificate[
-                                        "deadline"
-                                    ]
-                                )
-
-                                cert_col1, cert_col2, cert_col3 = (
-                                    st.columns(
-                                        [2, 1, 1]
-                                    )
-                                )
-
-                                with cert_col1:
-
-                                    st.markdown(
-                                        f"**📜 "
-                                        f"{certificate_name}**"
-                                    )
-
-                                with cert_col2:
-
-                                    if certificate_status == "Completed":
-
-                                        st.success(
-                                            "✅ Completed"
-                                        )
-
-                                    elif certificate_status == "Pending":
-
-                                        st.warning(
-                                            "⏳ Pending"
-                                        )
-
-                                    else:
-
-                                        st.info(
-                                            "❓ Not Updated"
-                                        )
-
-                                with cert_col3:
-
-                                    st.write(
-                                        f"📅 **"
-                                        f"{certificate_deadline}**"
-                                    )
-
-                                st.divider()
-
-                        else:
-
-                            st.info(
-                                "📭 No certificates assigned "
-                                "to this student."
-                            )
-
-            else:
-
-                st.info(
-                    "No students found."
-                )
-
-        # ==================================================
-        # UPDATE CERTIFICATE
-        # ==================================================
-
-        elif admin_menu == "Update Certificate":
-
-            st.subheader(
-                "✏️ Update Certificate"
-            )
-
-            update_register = st.text_input(
-                "Student Register Number",
-                key="update_register"
-            )
-
-            update_certificate = st.text_input(
-                "Certificate Name",
-                key="update_certificate"
-            )
-
-            update_status = st.selectbox(
-                "New Status",
-                [
-                    "Status",
-                    "Pending",
-                    "Completed"
-                ],
-                key="update_status"
-            )
-
-            update_deadline = st.text_input(
-                "New Deadline",
-                key="update_deadline"
-            )
-
-            if st.button(
-                "💾 Update Certificate"
-            ):
-
-                if (
-                    update_register
-                    and update_certificate
-                    and update_deadline
-                ):
-
-                    matching_certificates = get_certificates(
-                        update_register.strip()
-                    )
-
-                    matching_certificate = None
-
-                    for certificate in matching_certificates:
-
-                        if (
-                            certificate[
-                                "certificate_name"
-                            ].lower()
-                            ==
-                            update_certificate.strip().lower()
-                        ):
-
-                            matching_certificate = (
-                                certificate
-                            )
-
-                            break
-
-                    if matching_certificate:
-
-                        try:
-
-                            supabase.table(
-                                "certificates"
-                            ).update(
-                                {
-                                    "status":
-                                        update_status,
-
-                                    "deadline":
-                                        update_deadline.strip()
-                                }
-                            ).eq(
-                                "id",
-                                matching_certificate["id"]
-                            ).execute()
-
-                            st.success(
-                                "✅ Certificate updated successfully!"
-                            )
-
-                        except Exception as e:
-
-                            st.error(
-                                f"❌ Unable to update certificate: {e}"
-                            )
-
-                    else:
-
-                        st.error(
-                            "❌ Certificate not found!"
+                            f"❌ Error: {e}"
                         )
 
                 else:
 
                     st.warning(
-                        "⚠️ Please fill all fields"
+                        "⚠️ Enter certificate name."
                     )
 
-        # ==================================================
-        # UPLOADED CERTIFICATES
-        # ==================================================
+        else:
 
-        elif admin_menu == "Uploaded Certificates":
-
-            st.subheader(
-                "📂 Uploaded Certificates"
+            st.info(
+                "📭 Add students first."
             )
 
-            try:
 
-                storage_files = (
-                    supabase
-                    .storage
-                    .from_(STORAGE_BUCKET)
-                    .list()
+    # ========================================================
+    # REMOVE CERTIFICATE
+    # ========================================================
+
+    elif admin_menu == "Remove Certificate":
+
+        st.subheader(
+            "🗑️ Remove Certificate"
+        )
+
+        if all_certificates:
+
+            certificate_options = [
+                f'{c["id"]} - '
+                f'{c["register_no"]} - '
+                f'{c["certificate_name"]}'
+                for c in all_certificates
+            ]
+
+            selected_certificate = st.selectbox(
+                "Select Certificate",
+                certificate_options
+            )
+
+            selected_id = int(
+                selected_certificate
+                .split(" - ")[0]
+            )
+
+            if st.button(
+                "🗑️ Remove Certificate"
+            ):
+
+                try:
+
+                    (
+                        supabase
+                        .table("certificates")
+                        .delete()
+                        .eq(
+                            "id",
+                            selected_id
+                        )
+                        .execute()
+                    )
+
+                    st.success(
+                        "✅ Certificate removed successfully."
+                    )
+
+                    st.rerun()
+
+                except Exception as e:
+
+                    st.error(
+                        f"❌ Error: {e}"
+                    )
+
+        else:
+
+            st.info(
+                "📭 No certificates available."
+            )
+
+
+    # ========================================================
+    # STUDENT LIST
+    # ========================================================
+
+    elif admin_menu == "Student List":
+
+        st.subheader(
+            "👨‍🎓 Student List"
+        )
+
+        if all_students:
+
+            student_rows = []
+
+            for student in all_students:
+
+                student_rows.append(
+                    {
+                        "Register Number":
+                        student["register_no"],
+
+                        "Name":
+                        student["name"],
+
+                        "Department":
+                        student["department"]
+                    }
                 )
 
-                if storage_files:
+            student_df = pd.DataFrame(
+                student_rows
+            )
 
-                    for file_info in storage_files:
+            st.dataframe(
+                student_df,
+                use_container_width=True,
+                hide_index=True
+            )
 
-                        file_name = file_info.get(
-                            "name",
-                            ""
+        else:
+
+            st.info(
+                "📭 No students available."
+            )
+
+
+    # ========================================================
+    # CERTIFICATE OVERVIEW
+    # ========================================================
+
+    elif admin_menu == "Certificate Overview":
+
+        st.subheader(
+            "📂 Certificate Overview"
+        )
+
+        if all_students:
+
+            for student in all_students:
+
+                student_register = (
+                    student["register_no"]
+                )
+
+                student_name = (
+                    student["name"]
+                )
+
+                student_certificates = [
+                    c
+                    for c in all_certificates
+                    if c["register_no"]
+                    == student_register
+                ]
+
+                st.markdown(
+                    f"""
+                    ### 📁 {student_name}
+                    **🆔 {student_register}**
+                    | 📜 {len(student_certificates)}
+                    Certificate(s)
+                    """
+                )
+
+                with st.expander(
+                    "Open Student Folder"
+                ):
+
+                    st.write(
+                        f"**👤 Name:** {student_name}"
+                    )
+
+                    st.write(
+                        f"**🆔 Register Number:** "
+                        f"{student_register}"
+                    )
+
+                    st.write(
+                        f"**🏫 Department:** "
+                        f"{student['department']}"
+                    )
+
+                    st.markdown("---")
+
+                    if student_certificates:
+
+                        for certificate in student_certificates:
+
+                            if certificate["status"] == "Completed":
+
+                                st.success(
+                                    f"""
+                                    📜 **{
+                                        certificate[
+                                            "certificate_name"
+                                        ]
+                                    }**
+
+                                    Status: ✅ Completed
+
+                                    Deadline: {
+                                        certificate[
+                                            "deadline"
+                                        ]
+                                    }
+                                    """
+                                )
+
+                            elif certificate["status"] == "Pending":
+
+                                st.warning(
+                                    f"""
+                                    📜 **{
+                                        certificate[
+                                            "certificate_name"
+                                        ]
+                                    }**
+
+                                    Status: ⏳ Pending
+
+                                    Deadline: {
+                                        certificate[
+                                            "deadline"
+                                        ]
+                                    }
+                                    """
+                                )
+
+                            else:
+
+                                st.info(
+                                    f"""
+                                    📜 **{
+                                        certificate[
+                                            "certificate_name"
+                                        ]
+                                    }**
+
+                                    Status: ❓ Not Updated
+
+                                    Deadline: {
+                                        certificate[
+                                            "deadline"
+                                        ]
+                                    }
+                                    """
+                                )
+
+                    else:
+
+                        st.info(
+                            "📭 No certificates assigned."
                         )
 
-                        if not file_name:
-                            continue
+        else:
 
-                        st.markdown(
-                            f"📄 **{file_name}**"
+            st.info(
+                "📭 No students available."
+            )
+
+
+    # ========================================================
+    # CERTIFICATE ANALYTICS
+    # ========================================================
+
+    elif admin_menu == "Certificate Analytics":
+
+        st.subheader(
+            "📊 Certificate Analytics"
+        )
+
+        st.write(
+            "View certificate-wise completion status "
+            "of all students."
+        )
+
+        if all_certificates:
+
+            # ------------------------------------------------
+            # CREATE ANALYTICS DATA
+            # ------------------------------------------------
+
+            analytics_rows = []
+
+            for certificate in all_certificates:
+
+                certificate_name = (
+                    certificate["certificate_name"]
+                    .strip()
+                )
+
+                status = certificate["status"]
+
+                if status == "Completed":
+
+                    status_name = "Completed"
+
+                elif status == "Pending":
+
+                    status_name = "Pending"
+
+                else:
+
+                    status_name = "Not Updated"
+
+                analytics_rows.append(
+                    {
+                        "Certificate":
+                        certificate_name,
+
+                        "Status":
+                        status_name
+                    }
+                )
+
+            analytics_df = pd.DataFrame(
+                analytics_rows
+            )
+
+            # ------------------------------------------------
+            # COUNT STATUS
+            # ------------------------------------------------
+
+            summary_df = (
+                analytics_df
+                .groupby(
+                    [
+                        "Certificate",
+                        "Status"
+                    ]
+                )
+                .size()
+                .unstack(
+                    fill_value=0
+                )
+                .reset_index()
+            )
+
+            # Make sure all columns exist
+
+            for column in [
+                "Completed",
+                "Pending",
+                "Not Updated"
+            ]:
+
+                if column not in summary_df.columns:
+
+                    summary_df[column] = 0
+
+            summary_df["Total"] = (
+                summary_df["Completed"]
+                + summary_df["Pending"]
+                + summary_df["Not Updated"]
+            )
+
+            summary_df = summary_df[
+                [
+                    "Certificate",
+                    "Completed",
+                    "Pending",
+                    "Not Updated",
+                    "Total"
+                ]
+            ]
+
+            # ------------------------------------------------
+            # DISPLAY TABLE
+            # ------------------------------------------------
+
+            st.markdown(
+                "### 📋 Certificate-wise Status"
+            )
+
+            st.dataframe(
+                summary_df,
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # ------------------------------------------------
+            # OVERALL TOTALS
+            # ------------------------------------------------
+
+            analytics_completed = int(
+                summary_df[
+                    "Completed"
+                ].sum()
+            )
+
+            analytics_pending = int(
+                summary_df[
+                    "Pending"
+                ].sum()
+            )
+
+            analytics_not_updated = int(
+                summary_df[
+                    "Not Updated"
+                ].sum()
+            )
+
+            analytics_total = int(
+                summary_df[
+                    "Total"
+                ].sum()
+            )
+
+            st.markdown(
+                "### 📈 Overall Certificate Statistics"
+            )
+
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+
+                st.metric(
+                    "📜 Total",
+                    analytics_total
+                )
+
+            with col2:
+
+                st.metric(
+                    "✅ Completed",
+                    analytics_completed
+                )
+
+            with col3:
+
+                st.metric(
+                    "⏳ Pending",
+                    analytics_pending
+                )
+
+            with col4:
+
+                st.metric(
+                    "❓ Not Updated",
+                    analytics_not_updated
+                )
+
+            # ------------------------------------------------
+            # BAR CHART
+            # ------------------------------------------------
+
+            st.markdown(
+                "### 📊 Certificate-wise Comparison"
+            )
+
+            chart_df = summary_df.melt(
+                id_vars=[
+                    "Certificate"
+                ],
+                value_vars=[
+                    "Completed",
+                    "Pending",
+                    "Not Updated"
+                ],
+                var_name="Status",
+                value_name="Students"
+            )
+
+            fig = px.bar(
+                chart_df,
+                x="Certificate",
+                y="Students",
+                color="Status",
+                barmode="group",
+                title="Certificate Completion Status"
+            )
+
+            fig.update_layout(
+                height=500,
+                xaxis_title="Certificate",
+                yaxis_title="Number of Students",
+                margin=dict(
+                    l=20,
+                    r=20,
+                    t=60,
+                    b=80
+                )
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True
+            )
+
+        else:
+
+            st.info(
+                "📭 No certificates available for analytics."
+            )
+
+
+    # ========================================================
+    # UPDATE CERTIFICATE
+    # ========================================================
+
+    elif admin_menu == "Update Certificate":
+
+        st.subheader(
+            "✏️ Update Certificate"
+        )
+
+        if all_certificates:
+
+            certificate_options = [
+                f'{c["id"]} - '
+                f'{c["register_no"]} - '
+                f'{c["certificate_name"]}'
+                for c in all_certificates
+            ]
+
+            selected_certificate = st.selectbox(
+                "Select Certificate",
+                certificate_options
+            )
+
+            selected_id = int(
+                selected_certificate
+                .split(" - ")[0]
+            )
+
+            selected_certificate_data = next(
+                (
+                    c
+                    for c in all_certificates
+                    if c["id"] == selected_id
+                ),
+                None
+            )
+
+            if selected_certificate_data:
+
+                current_status = (
+                    selected_certificate_data[
+                        "status"
+                    ]
+                )
+
+                current_deadline = datetime.strptime(
+                    selected_certificate_data[
+                        "deadline"
+                    ],
+                    "%Y-%m-%d"
+                ).date()
+
+                new_status = st.selectbox(
+                    "Status",
+                    [
+                        "Status",
+                        "Pending",
+                        "Completed"
+                    ],
+                    index=[
+                        "Status",
+                        "Pending",
+                        "Completed"
+                    ].index(
+                        current_status
+                    )
+                    if current_status
+                    in [
+                        "Status",
+                        "Pending",
+                        "Completed"
+                    ]
+                    else 0
+                )
+
+                new_deadline = st.date_input(
+                    "Deadline",
+                    value=current_deadline
+                )
+
+                if st.button(
+                    "💾 Update Certificate"
+                ):
+
+                    try:
+
+                        (
+                            supabase
+                            .table("certificates")
+                            .update(
+                                {
+                                    "status":
+                                    new_status,
+
+                                    "deadline":
+                                    new_deadline
+                                    .strftime(
+                                        "%Y-%m-%d"
+                                    )
+                                }
+                            )
+                            .eq(
+                                "id",
+                                selected_id
+                            )
+                            .execute()
                         )
 
-                        col1, col2 = st.columns(2)
+                        st.success(
+                            "✅ Certificate updated successfully."
+                        )
 
-                        with col1:
+                        st.rerun()
+
+                    except Exception as e:
+
+                        st.error(
+                            f"❌ Error: {e}"
+                        )
+
+        else:
+
+            st.info(
+                "📭 No certificates available."
+            )
+
+
+    # ========================================================
+    # UPLOADED CERTIFICATES
+    # ========================================================
+
+    elif admin_menu == "Uploaded Certificates":
+
+        st.subheader(
+            "📤 Uploaded Certificates"
+        )
+
+        try:
+
+            storage_files = (
+                supabase
+                .storage
+                .from_(STORAGE_BUCKET)
+                .list()
+            )
+
+            if storage_files:
+
+                for file_info in storage_files:
+
+                    file_name = file_info.get(
+                        "name"
+                    )
+
+                    if not file_name:
+
+                        continue
+
+                    st.markdown(
+                        f"### 📄 {file_name}"
+                    )
+
+                    col1, col2, col3 = st.columns(3)
+
+                    with col1:
+
+                        if st.button(
+                            "👁️ View / Download",
+                            key=f"view_{file_name}"
+                        ):
 
                             try:
 
                                 file_bytes = (
                                     supabase
                                     .storage
-                                    .from_(STORAGE_BUCKET)
-                                    .download(file_name)
+                                    .from_(
+                                        STORAGE_BUCKET
+                                    )
+                                    .download(
+                                        file_name
+                                    )
                                 )
 
                                 st.download_button(
-                                    "⬇️ Download",
+                                    "⬇️ Download File",
                                     data=file_bytes,
                                     file_name=file_name,
-                                    key="download_" + file_name
+                                    key=f"download_{file_name}"
                                 )
 
                             except Exception as e:
 
                                 st.error(
-                                    f"❌ Unable to download file: {e}"
+                                    f"❌ Download failed: {e}"
                                 )
 
-                        with col2:
+                    with col2:
 
-                            if st.button(
-                                "🗑️ Delete",
-                                key="delete_upload_" + file_name,
-                                type="primary"
-                            ):
+                        if st.button(
+                            "🗑️ Delete",
+                            key=f"delete_{file_name}"
+                        ):
 
-                                try:
+                            try:
 
-                                    (
-                                        supabase
-                                        .storage
-                                        .from_(STORAGE_BUCKET)
-                                        .remove(
-                                            [file_name]
-                                        )
+                                (
+                                    supabase
+                                    .storage
+                                    .from_(
+                                        STORAGE_BUCKET
                                     )
-
-                                    st.success(
-                                        f"✅ {file_name} "
-                                        "deleted successfully!"
+                                    .remove(
+                                        [file_name]
                                     )
+                                )
 
-                                    st.rerun()
+                                st.success(
+                                    "✅ File deleted."
+                                )
 
-                                except Exception as e:
+                                st.rerun()
 
-                                    st.error(
-                                        f"❌ Unable to delete file: {e}"
-                                    )
+                            except Exception as e:
 
-                        st.divider()
+                                st.error(
+                                    f"❌ Delete failed: {e}"
+                                )
 
-                else:
+                    st.markdown("---")
 
-                    st.info(
-                        "No certificates uploaded yet."
-                    )
+            else:
 
-            except Exception as e:
-
-                st.error(
-                    f"❌ Unable to access Supabase Storage: {e}"
+                st.info(
+                    "📭 No uploaded certificates found."
                 )
 
-        # ==================================================
-        # ADMIN LOGOUT
-        # ==================================================
+        except Exception as e:
 
-        st.markdown("---")
-
-        if st.button(
-            "🚪 Admin Logout"
-        ):
-
-            st.session_state.admin_logged_in = False
-
-            st.rerun()
+            st.error(
+                f"❌ Unable to access storage: {e}"
+            )
 
 
-# ==================================================
+# ============================================================
 # FOOTER
-# ==================================================
+# ============================================================
 
 st.markdown(
     """
     <div class="footer">
-        🎓 Student Certificate Management System<br>
-        Certificate Tracking & Deadline Management
+        🎓 Student Certificate Management System
+        <br>
+        Built with Python, Streamlit & Supabase
     </div>
     """,
     unsafe_allow_html=True
