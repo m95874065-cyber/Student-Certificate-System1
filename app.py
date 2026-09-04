@@ -415,10 +415,6 @@ with st.sidebar:
 
 if not st.session_state.logged_in:
 
-    # ========================================================
-    # COLLEGE NAME
-    # ========================================================
-
     st.markdown(
         """
         <div class="college-name">
@@ -649,9 +645,7 @@ if (
                 """
             )
 
-        total_certificates = len(
-            certificates
-        )
+        total_certificates = len(certificates)
 
         completed_certificates = sum(
             1
@@ -727,7 +721,7 @@ if (
         )
 
         # ====================================================
-        # 🏆 ACHIEVEMENT BADGE
+        # ACHIEVEMENT BADGE
         # ====================================================
 
         badge_name, badge_message = get_achievement_badge(
@@ -1105,6 +1099,10 @@ if (
 
     st.markdown("---")
 
+    # ========================================================
+    # ADMIN MENU
+    # ========================================================
+
     admin_menu = st.selectbox(
         "Admin Menu",
         [
@@ -1113,6 +1111,7 @@ if (
             "Add Certificate",
             "Remove Certificate",
             "Student List",
+            "Student Search & Filter",
             "Certificate Overview",
             "Certificate Analytics",
             "Update Certificate",
@@ -1130,6 +1129,12 @@ if (
         st.subheader(
             "➕ Add New Student"
         )
+
+        if all_students:
+
+            st.info(
+                f"👨‍🎓 {len(all_students)} student(s) already registered."
+            )
 
         new_register_no = st.text_input(
             "Register Number"
@@ -1358,8 +1363,7 @@ if (
                                     certificate_status,
 
                                     "deadline":
-                                    certificate_deadline
-                                    .strftime(
+                                    certificate_deadline.strftime(
                                         "%Y-%m-%d"
                                     )
                                 }
@@ -1495,6 +1499,493 @@ if (
                 use_container_width=True,
                 hide_index=True
             )
+
+        else:
+
+            st.info(
+                "📭 No students available."
+            )
+
+
+    # ========================================================
+    # STUDENT SEARCH & FILTER
+    # ========================================================
+
+    elif admin_menu == "Student Search & Filter":
+
+        st.subheader(
+            "🔍 Student Search & Filter"
+        )
+
+        st.write(
+            "Search students and filter their certificate status."
+        )
+
+        if all_students:
+
+            # ------------------------------------------------
+            # SEARCH
+            # ------------------------------------------------
+
+            search_text = st.text_input(
+                "🔍 Search by Register Number or Student Name",
+                placeholder="Example: RCAS2026BAI173 or Pooja"
+            )
+
+            # ------------------------------------------------
+            # DEPARTMENT OPTIONS
+            # ------------------------------------------------
+
+            department_values = sorted(
+                list(
+                    set(
+                        str(student["department"])
+                        for student in all_students
+                        if student.get("department")
+                    )
+                )
+            )
+
+            department_options = [
+                "All Departments"
+            ] + department_values
+
+            # ------------------------------------------------
+            # CERTIFICATE OPTIONS
+            # ------------------------------------------------
+
+            certificate_values = sorted(
+                list(
+                    set(
+                        str(certificate["certificate_name"])
+                        for certificate in all_certificates
+                        if certificate.get("certificate_name")
+                    )
+                )
+            )
+
+            certificate_options = [
+                "All Certificates"
+            ] + certificate_values
+
+            # ------------------------------------------------
+            # STATUS OPTIONS
+            # ------------------------------------------------
+
+            status_options = [
+                "All Statuses",
+                "Completed",
+                "Pending",
+                "Not Updated"
+            ]
+
+            filter_col1, filter_col2, filter_col3 = st.columns(3)
+
+            with filter_col1:
+
+                selected_department = st.selectbox(
+                    "🏫 Department",
+                    department_options
+                )
+
+            with filter_col2:
+
+                selected_certificate = st.selectbox(
+                    "📜 Certificate",
+                    certificate_options
+                )
+
+            with filter_col3:
+
+                selected_status = st.selectbox(
+                    "📊 Certificate Status",
+                    status_options
+                )
+
+            # ------------------------------------------------
+            # FILTER STUDENTS
+            # ------------------------------------------------
+
+            filtered_students = []
+
+            for student in all_students:
+
+                register = str(
+                    student["register_no"]
+                )
+
+                name = str(
+                    student["name"]
+                )
+
+                department = str(
+                    student["department"]
+                )
+
+                # Search filter
+
+                if search_text:
+
+                    search_lower = (
+                        search_text
+                        .strip()
+                        .lower()
+                    )
+
+                    if (
+                        search_lower
+                        not in register.lower()
+                        and search_lower
+                        not in name.lower()
+                    ):
+
+                        continue
+
+                # Department filter
+
+                if (
+                    selected_department
+                    != "All Departments"
+                    and department
+                    != selected_department
+                ):
+
+                    continue
+
+                # Student certificates
+
+                student_certificates = [
+                    certificate
+                    for certificate in all_certificates
+                    if certificate["register_no"]
+                    == register
+                ]
+
+                # Certificate filter
+
+                if (
+                    selected_certificate
+                    != "All Certificates"
+                ):
+
+                    matching_certificates = [
+                        certificate
+                        for certificate
+                        in student_certificates
+                        if certificate[
+                            "certificate_name"
+                        ]
+                        == selected_certificate
+                    ]
+
+                    if not matching_certificates:
+
+                        continue
+
+                    student_certificates = (
+                        matching_certificates
+                    )
+
+                # Status filter
+
+                if (
+                    selected_status
+                    != "All Statuses"
+                ):
+
+                    status_match = False
+
+                    for certificate in student_certificates:
+
+                        certificate_status = (
+                            certificate["status"]
+                        )
+
+                        if (
+                            selected_status
+                            == "Completed"
+                            and certificate_status
+                            == "Completed"
+                        ):
+
+                            status_match = True
+
+                        elif (
+                            selected_status
+                            == "Pending"
+                            and certificate_status
+                            == "Pending"
+                        ):
+
+                            status_match = True
+
+                        elif (
+                            selected_status
+                            == "Not Updated"
+                            and certificate_status
+                            == "Status"
+                        ):
+
+                            status_match = True
+
+                    if not status_match:
+
+                        continue
+
+                # ------------------------------------------------
+                # COUNTS
+                # ------------------------------------------------
+
+                total = len(
+                    student_certificates
+                )
+
+                completed = sum(
+                    1
+                    for certificate
+                    in student_certificates
+                    if certificate["status"]
+                    == "Completed"
+                )
+
+                pending = sum(
+                    1
+                    for certificate
+                    in student_certificates
+                    if certificate["status"]
+                    == "Pending"
+                )
+
+                not_updated = sum(
+                    1
+                    for certificate
+                    in student_certificates
+                    if certificate["status"]
+                    == "Status"
+                )
+
+                filtered_students.append(
+                    {
+                        "Register Number":
+                        register,
+
+                        "Student Name":
+                        name,
+
+                        "Department":
+                        department,
+
+                        "Total Certificates":
+                        total,
+
+                        "Completed":
+                        completed,
+
+                        "Pending":
+                        pending,
+
+                        "Not Updated":
+                        not_updated
+                    }
+                )
+
+            # ------------------------------------------------
+            # RESULTS
+            # ------------------------------------------------
+
+            st.markdown("---")
+
+            st.markdown(
+                f"### 📋 Search Results: {len(filtered_students)} Student(s)"
+            )
+
+            if filtered_students:
+
+                filtered_df = pd.DataFrame(
+                    filtered_students
+                )
+
+                st.dataframe(
+                    filtered_df,
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                # ------------------------------------------------
+                # RESULT SUMMARY
+                # ------------------------------------------------
+
+                result_col1, result_col2, result_col3, result_col4 = (
+                    st.columns(4)
+                )
+
+                result_total = sum(
+                    row["Total Certificates"]
+                    for row in filtered_students
+                )
+
+                result_completed = sum(
+                    row["Completed"]
+                    for row in filtered_students
+                )
+
+                result_pending = sum(
+                    row["Pending"]
+                    for row in filtered_students
+                )
+
+                result_not_updated = sum(
+                    row["Not Updated"]
+                    for row in filtered_students
+                )
+
+                with result_col1:
+
+                    st.metric(
+                        "📜 Total Certificates",
+                        result_total
+                    )
+
+                with result_col2:
+
+                    st.metric(
+                        "✅ Completed",
+                        result_completed
+                    )
+
+                with result_col3:
+
+                    st.metric(
+                        "⏳ Pending",
+                        result_pending
+                    )
+
+                with result_col4:
+
+                    st.metric(
+                        "❓ Not Updated",
+                        result_not_updated
+                    )
+
+                # ------------------------------------------------
+                # INDIVIDUAL STUDENT DETAILS
+                # ------------------------------------------------
+
+                st.markdown(
+                    "### 👨‍🎓 Student Certificate Details"
+                )
+
+                for row in filtered_students:
+
+                    student_register = (
+                        row["Register Number"]
+                    )
+
+                    student_name = (
+                        row["Student Name"]
+                    )
+
+                    student_department = (
+                        row["Department"]
+                    )
+
+                    student_certificate_data = [
+                        certificate
+                        for certificate
+                        in all_certificates
+                        if certificate["register_no"]
+                        == student_register
+                    ]
+
+                    with st.expander(
+                        f"📁 {student_name} | "
+                        f"🆔 {student_register}"
+                    ):
+
+                        detail_col1, detail_col2, detail_col3 = (
+                            st.columns(3)
+                        )
+
+                        with detail_col1:
+
+                            st.write(
+                                f"**👤 Name:** "
+                                f"{student_name}"
+                            )
+
+                        with detail_col2:
+
+                            st.write(
+                                f"**🆔 Register Number:** "
+                                f"{student_register}"
+                            )
+
+                        with detail_col3:
+
+                            st.write(
+                                f"**🏫 Department:** "
+                                f"{student_department}"
+                            )
+
+                        st.markdown("---")
+
+                        if student_certificate_data:
+
+                            for certificate in student_certificate_data:
+
+                                certificate_name = (
+                                    certificate[
+                                        "certificate_name"
+                                    ]
+                                )
+
+                                certificate_status = (
+                                    certificate[
+                                        "status"
+                                    ]
+                                )
+
+                                deadline = (
+                                    certificate[
+                                        "deadline"
+                                    ]
+                                )
+
+                                if certificate_status == "Completed":
+
+                                    st.success(
+                                        f"📜 **{certificate_name}** | "
+                                        f"✅ Completed | "
+                                        f"Deadline: {deadline}"
+                                    )
+
+                                elif certificate_status == "Pending":
+
+                                    st.warning(
+                                        f"📜 **{certificate_name}** | "
+                                        f"⏳ Pending | "
+                                        f"Deadline: {deadline}"
+                                    )
+
+                                else:
+
+                                    st.info(
+                                        f"📜 **{certificate_name}** | "
+                                        f"❓ Not Updated | "
+                                        f"Deadline: {deadline}"
+                                    )
+
+                        else:
+
+                            st.info(
+                                "📭 No certificates assigned."
+                            )
+
+            else:
+
+                st.warning(
+                    "🔎 No students match the selected filters."
+                )
 
         else:
 
@@ -2179,8 +2670,7 @@ if (
                                     new_status,
 
                                     "deadline":
-                                    new_deadline
-                                    .strftime(
+                                    new_deadline.strftime(
                                         "%Y-%m-%d"
                                     )
                                 }
@@ -2246,7 +2736,7 @@ if (
                         f"### 📄 {file_name}"
                     )
 
-                    col1, col2, col3 = st.columns(3)
+                    col1, col2 = st.columns(2)
 
                     with col1:
 
