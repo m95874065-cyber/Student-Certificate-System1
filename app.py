@@ -371,8 +371,8 @@ if not st.session_state.logged_in:
     st.markdown(
         """
         <div class="college-name">
-            <h2>RATHINAM GLOBAL UNIVERSITY</h2>
-            <p>To Be Deemed University</p>
+            <h2>RATHINAM GLOBAL TO BE DEEMED UNIVERSITY</h2>
+            
         </div>
         """,
         unsafe_allow_html=True
