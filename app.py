@@ -1,9 +1,9 @@
 import streamlit as st
-import sqlite3
 from datetime import datetime
 import os
 import pandas as pd
 import plotly.express as px
+from supabase import create_client
 
 # ==================================================
 # PAGE SETTINGS
@@ -85,36 +85,91 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==================================================
-# DATABASE
+# SUPABASE DATABASE
 # ==================================================
 
-conn = sqlite3.connect(
-    "certificate.db",
-    check_same_thread=False
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+
+supabase = create_client(
+    SUPABASE_URL,
+    SUPABASE_KEY
 )
 
-cursor = conn.cursor()
+# ==================================================
+# HELPER FUNCTIONS
+# ==================================================
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS students (
-    register_no TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    department TEXT NOT NULL,
-    password TEXT NOT NULL
-)
-""")
+def get_students():
+    response = (
+        supabase
+        .table("students")
+        .select("register_no,name,department,password")
+        .execute()
+    )
+    return response.data or []
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS certificates (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    register_no TEXT NOT NULL,
-    certificate_name TEXT NOT NULL,
-    status TEXT NOT NULL,
-    deadline TEXT NOT NULL
-)
-""")
 
-conn.commit()
+def get_student(register_no):
+    response = (
+        supabase
+        .table("students")
+        .select("register_no,name,department,password")
+        .eq("register_no", register_no)
+        .execute()
+    )
+
+    if response.data:
+        return response.data[0]
+
+    return None
+
+
+def get_certificates(register_no=None):
+    query = (
+        supabase
+        .table("certificates")
+        .select("id,register_no,certificate_name,status,deadline")
+    )
+
+    if register_no:
+        query = query.eq("register_no", register_no)
+
+    response = query.order("id").execute()
+
+    return response.data or []
+
+
+def get_numeric_register_number(register_no):
+    try:
+        if "BAI" in register_no:
+            number_part = register_no.split("BAI")[-1]
+            return int(number_part)
+        return 999999999
+    except:
+        return 999999999
+
+
+def sort_students_numeric(students):
+    return sorted(
+        students,
+        key=lambda student: get_numeric_register_number(
+            student["register_no"]
+        )
+    )
+
+
+def sort_certificates_numeric(certificates):
+    return sorted(
+        certificates,
+        key=lambda certificate: (
+            get_numeric_register_number(
+                certificate["register_no"]
+            ),
+            certificate["certificate_name"].lower()
+        )
+    )
+
 
 # ==================================================
 # SESSION STATE
@@ -218,22 +273,12 @@ if login_type == "Student Login":
 
             if login_button:
 
-                cursor.execute(
-                    """
-                    SELECT *
-                    FROM students
-                    WHERE register_no = ?
-                    AND password = ?
-                    """,
-                    (
-                        register_no,
-                        password
-                    )
-                )
+                student = get_student(register_no)
 
-                student = cursor.fetchone()
-
-                if student:
+                if (
+                    student
+                    and student["password"] == password
+                ):
 
                     st.session_state.student_logged_in = True
                     st.session_state.student_register = register_no
@@ -254,21 +299,12 @@ if login_type == "Student Login":
 
         register_no = st.session_state.student_register
 
-        cursor.execute(
-            """
-            SELECT *
-            FROM students
-            WHERE register_no = ?
-            """,
-            (register_no,)
-        )
-
-        student = cursor.fetchone()
+        student = get_student(register_no)
 
         if student:
 
             st.success(
-                f"👋 Welcome, {student[1]}!"
+                f"👋 Welcome, {student['name']}!"
             )
 
             st.write(
@@ -288,56 +324,43 @@ if login_type == "Student Login":
 
             with profile1:
                 st.info(
-                    f"👤 Student Name\n\n**{student[1]}**"
+                    f"👤 Student Name\n\n**{student['name']}**"
                 )
 
             with profile2:
                 st.info(
-                    f"🆔 Register Number\n\n**{student[0]}**"
+                    f"🆔 Register Number\n\n**{student['register_no']}**"
                 )
 
             with profile3:
                 st.info(
-                    f"🏫 Department\n\n**{student[2]}**"
+                    f"🏫 Department\n\n**{student['department']}**"
                 )
 
             # ==================================================
             # GET CERTIFICATES
             # ==================================================
 
-            cursor.execute(
-                """
-                SELECT id,
-                       certificate_name,
-                       status,
-                       deadline
-                FROM certificates
-                WHERE register_no = ?
-                ORDER BY id
-                """,
-                (register_no,)
-            )
-
-            certificates = cursor.fetchall()
+            certificates = get_certificates(register_no)
 
             total = len(certificates)
 
             completed = sum(
                 1
                 for certificate in certificates
-                if certificate[2] == "Completed"
+                if certificate["status"] == "Completed"
             )
 
             pending = sum(
                 1
                 for certificate in certificates
-                if certificate[2] == "Pending"
+                if certificate["status"] == "Pending"
             )
 
             not_updated = sum(
                 1
                 for certificate in certificates
-                if certificate[2] == "Status"
+                if certificate["status"] == "Status"
             )
 
             progress = (
@@ -501,9 +524,9 @@ if login_type == "Student Login":
 
             for certificate in certificates:
 
-                name = certificate[1]
-                status = certificate[2]
-                deadline = certificate[3]
+                name = certificate["certificate_name"]
+                status = certificate["status"]
+                deadline = certificate["deadline"]
 
                 try:
 
@@ -594,12 +617,12 @@ if login_type == "Student Login":
 
             else:
 
-                for index, certificate in enumerate(certificates):
+                for certificate in certificates:
 
-                    certificate_id = certificate[0]
-                    name = certificate[1]
-                    status = certificate[2]
-                    deadline = certificate[3]
+                    certificate_id = certificate["id"]
+                    name = certificate["certificate_name"]
+                    status = certificate["status"]
+                    deadline = certificate["deadline"]
 
                     st.markdown(
                         f"#### 📜 {name}"
@@ -650,19 +673,17 @@ if login_type == "Student Login":
 
                         if new_status != status:
 
-                            cursor.execute(
-                                """
-                                UPDATE certificates
-                                SET status = ?
-                                WHERE id = ?
-                                """,
-                                (
-                                    new_status,
-                                    certificate_id
+                            (
+                                supabase
+                                .table("certificates")
+                                .update(
+                                    {
+                                        "status": new_status
+                                    }
                                 )
+                                .eq("id", certificate_id)
+                                .execute()
                             )
-
-                            conn.commit()
 
                             st.rerun()
 
@@ -838,41 +859,28 @@ else:
         # STATISTICS
         # ==================================================
 
-        cursor.execute(
-            "SELECT COUNT(*) FROM students"
+        all_students = get_students()
+        all_certificates = get_certificates()
+
+        total_students = len(all_students)
+
+        total_completed = sum(
+            1
+            for certificate in all_certificates
+            if certificate["status"] == "Completed"
         )
 
-        total_students = cursor.fetchone()[0]
-
-        cursor.execute(
-            """
-            SELECT COUNT(*)
-            FROM certificates
-            WHERE status = 'Completed'
-            """
+        total_pending = sum(
+            1
+            for certificate in all_certificates
+            if certificate["status"] == "Pending"
         )
 
-        total_completed = cursor.fetchone()[0]
-
-        cursor.execute(
-            """
-            SELECT COUNT(*)
-            FROM certificates
-            WHERE status = 'Pending'
-            """
+        total_not_updated = sum(
+            1
+            for certificate in all_certificates
+            if certificate["status"] == "Status"
         )
-
-        total_pending = cursor.fetchone()[0]
-
-        cursor.execute(
-            """
-            SELECT COUNT(*)
-            FROM certificates
-            WHERE status = 'Status'
-            """
-        )
-
-        total_not_updated = cursor.fetchone()[0]
 
         col1, col2, col3, col4 = st.columns(4)
 
@@ -962,16 +970,9 @@ else:
                     and new_password
                 ):
 
-                    cursor.execute(
-                        """
-                        SELECT register_no
-                        FROM students
-                        WHERE register_no = ?
-                        """,
-                        (new_register,)
+                    existing_student = get_student(
+                        new_register
                     )
-
-                    existing_student = cursor.fetchone()
 
                     if existing_student:
 
@@ -981,26 +982,19 @@ else:
 
                     else:
 
-                        cursor.execute(
-                            """
-                            INSERT INTO students
-                            (
-                                register_no,
-                                name,
-                                department,
-                                password
+                        (
+                            supabase
+                            .table("students")
+                            .insert(
+                                {
+                                    "register_no": new_register,
+                                    "name": new_name,
+                                    "department": new_department,
+                                    "password": new_password
+                                }
                             )
-                            VALUES (?, ?, ?, ?)
-                            """,
-                            (
-                                new_register,
-                                new_name,
-                                new_department,
-                                new_password
-                            )
+                            .execute()
                         )
-
-                        conn.commit()
 
                         st.success(
                             "✅ Student added successfully!"
@@ -1022,25 +1016,15 @@ else:
                 "🗑️ Remove Student"
             )
 
-            cursor.execute(
-                """
-                SELECT register_no, name, department
-                FROM students
-                ORDER BY CAST(
-                    substr(
-                        register_no,
-                        instr(register_no, 'BAI') + 3
-                    ) AS INTEGER
-                )
-                """
+            students_for_delete = sort_students_numeric(
+                get_students()
             )
-
-            students_for_delete = cursor.fetchall()
 
             if students_for_delete:
 
                 student_options = {
-                    f"{student[1]} - {student[0]}": student[0]
+                    f"{student['name']} - {student['register_no']}":
+                    student["register_no"]
                     for student in students_for_delete
                 }
 
@@ -1063,23 +1047,21 @@ else:
                     type="primary"
                 ):
 
-                    cursor.execute(
-                        """
-                        DELETE FROM certificates
-                        WHERE register_no = ?
-                        """,
-                        (selected_register,)
+                    (
+                        supabase
+                        .table("certificates")
+                        .delete()
+                        .eq("register_no", selected_register)
+                        .execute()
                     )
 
-                    cursor.execute(
-                        """
-                        DELETE FROM students
-                        WHERE register_no = ?
-                        """,
-                        (selected_register,)
+                    (
+                        supabase
+                        .table("students")
+                        .delete()
+                        .eq("register_no", selected_register)
+                        .execute()
                     )
-
-                    conn.commit()
 
                     st.success(
                         "✅ Student and their certificates deleted successfully!"
@@ -1143,35 +1125,28 @@ else:
                     and certificate_deadline
                 ):
 
-                    cursor.execute(
-                        """
-                        SELECT register_no
-                        FROM students
-                        WHERE register_no = ?
-                        """,
-                        (certificate_register,)
+                    student_exists = get_student(
+                        certificate_register
                     )
-
-                    student_exists = cursor.fetchone()
 
                     if student_exists:
 
-                        cursor.execute(
-                            """
-                            SELECT id
-                            FROM certificates
-                            WHERE register_no = ?
-                            AND certificate_name = ?
-                            """,
-                            (
-                                certificate_register,
+                        existing_certificates = (
+                            supabase
+                            .table("certificates")
+                            .select("id")
+                            .eq(
+                                "register_no",
+                                certificate_register
+                            )
+                            .eq(
+                                "certificate_name",
                                 certificate_name
                             )
+                            .execute()
                         )
 
-                        certificate_exists = cursor.fetchone()
-
-                        if certificate_exists:
+                        if existing_certificates.data:
 
                             st.error(
                                 "❌ This certificate already exists for this student!"
@@ -1179,26 +1154,19 @@ else:
 
                         else:
 
-                            cursor.execute(
-                                """
-                                INSERT INTO certificates
-                                (
-                                    register_no,
-                                    certificate_name,
-                                    status,
-                                    deadline
+                            (
+                                supabase
+                                .table("certificates")
+                                .insert(
+                                    {
+                                        "register_no": certificate_register,
+                                        "certificate_name": certificate_name,
+                                        "status": certificate_status,
+                                        "deadline": certificate_deadline
+                                    }
                                 )
-                                VALUES (?, ?, ?, ?)
-                                """,
-                                (
-                                    certificate_register,
-                                    certificate_name,
-                                    certificate_status,
-                                    certificate_deadline
-                                )
+                                .execute()
                             )
-
-                            conn.commit()
 
                             st.success(
                                 "✅ Certificate added successfully!"
@@ -1226,26 +1194,9 @@ else:
                 "🗑️ Remove Certificate"
             )
 
-            cursor.execute(
-                """
-                SELECT id,
-                       register_no,
-                       certificate_name,
-                       status,
-                       deadline
-                FROM certificates
-                ORDER BY
-                    CAST(
-                        substr(
-                            register_no,
-                            instr(register_no, 'BAI') + 3
-                        ) AS INTEGER
-                    ),
-                    certificate_name
-                """
+            certificates_for_delete = sort_certificates_numeric(
+                get_certificates()
             )
-
-            certificates_for_delete = cursor.fetchall()
 
             if certificates_for_delete:
 
@@ -1253,10 +1204,10 @@ else:
 
                 for certificate in certificates_for_delete:
 
-                    certificate_id = certificate[0]
-                    register = certificate[1]
-                    name = certificate[2]
-                    status = certificate[3]
+                    certificate_id = certificate["id"]
+                    register = certificate["register_no"]
+                    name = certificate["certificate_name"]
+                    status = certificate["status"]
 
                     display_name = (
                         f"{register} - {name} ({status})"
@@ -1285,15 +1236,13 @@ else:
                     type="primary"
                 ):
 
-                    cursor.execute(
-                        """
-                        DELETE FROM certificates
-                        WHERE id = ?
-                        """,
-                        (selected_certificate_id,)
+                    (
+                        supabase
+                        .table("certificates")
+                        .delete()
+                        .eq("id", selected_certificate_id)
+                        .execute()
                     )
-
-                    conn.commit()
 
                     st.success(
                         "✅ Certificate deleted successfully!"
@@ -1317,31 +1266,20 @@ else:
                 "👥 Student List"
             )
 
-            cursor.execute(
-                """
-                SELECT register_no,
-                       name,
-                       department
-                FROM students
-                ORDER BY CAST(
-                    substr(
-                        register_no,
-                        instr(register_no, 'BAI') + 3
-                    ) AS INTEGER
-                )
-                """
+            students = sort_students_numeric(
+                get_students()
             )
-
-            students = cursor.fetchall()
 
             if students:
 
                 student_df = pd.DataFrame(
-                    students,
-                    columns=[
-                        "Register Number",
-                        "Name",
-                        "Department"
+                    [
+                        {
+                            "Register Number": student["register_no"],
+                            "Name": student["name"],
+                            "Department": student["department"]
+                        }
+                        for student in students
                     ]
                 )
 
@@ -1371,54 +1309,25 @@ else:
                 "📁 Select a student to view all their certificates."
             )
 
-            # --------------------------------------------------
-            # GET ALL STUDENTS - NUMERIC REGISTER ORDER
-            # --------------------------------------------------
-
-            cursor.execute(
-                """
-                SELECT register_no,
-                       name,
-                       department
-                FROM students
-                ORDER BY CAST(
-                    substr(
-                        register_no,
-                        instr(register_no, 'BAI') + 3
-                    ) AS INTEGER
-                )
-                """
+            all_students = sort_students_numeric(
+                get_students()
             )
-
-            all_students = cursor.fetchall()
 
             if all_students:
 
-                # --------------------------------------------------
-                # STUDENT FOLDER LIST
-                # --------------------------------------------------
+                for student_data in all_students:
 
-                for student_index, student_data in enumerate(all_students):
+                    student_register = student_data["register_no"]
+                    student_name = student_data["name"]
+                    student_department = student_data["department"]
 
-                    student_register = student_data[0]
-                    student_name = student_data[1]
-                    student_department = student_data[2]
-
-                    # Get certificate count
-                    cursor.execute(
-                        """
-                        SELECT COUNT(*)
-                        FROM certificates
-                        WHERE register_no = ?
-                        """,
-                        (student_register,)
+                    student_certificates = get_certificates(
+                        student_register
                     )
 
-                    certificate_count = cursor.fetchone()[0]
-
-                    # --------------------------------------------------
-                    # FOLDER
-                    # --------------------------------------------------
+                    certificate_count = len(
+                        student_certificates
+                    )
 
                     with st.expander(
                         f"📁 {student_name}  |  🆔 {student_register}  |  📜 {certificate_count} Certificate(s)",
@@ -1451,39 +1360,17 @@ else:
 
                         st.divider()
 
-                        # --------------------------------------------------
-                        # GET THIS STUDENT'S CERTIFICATES
-                        # --------------------------------------------------
-
-                        cursor.execute(
-                            """
-                            SELECT id,
-                                   certificate_name,
-                                   status,
-                                   deadline
-                            FROM certificates
-                            WHERE register_no = ?
-                            ORDER BY id
-                            """,
-                            (student_register,)
-                        )
-
-                        student_certificates = cursor.fetchall()
-
                         if student_certificates:
 
                             st.markdown(
                                 "### 📜 All Certificates"
                             )
 
-                            for cert_index, certificate in enumerate(
-                                student_certificates
-                            ):
+                            for certificate in student_certificates:
 
-                                certificate_id = certificate[0]
-                                certificate_name = certificate[1]
-                                certificate_status = certificate[2]
-                                certificate_deadline = certificate[3]
+                                certificate_name = certificate["certificate_name"]
+                                certificate_status = certificate["status"]
+                                certificate_deadline = certificate["deadline"]
 
                                 cert_col1, cert_col2, cert_col3 = st.columns(
                                     [2, 1, 1]
@@ -1580,40 +1467,42 @@ else:
                     and update_deadline
                 ):
 
-                    cursor.execute(
-                        """
-                        SELECT id
-                        FROM certificates
-                        WHERE register_no = ?
-                        AND certificate_name = ?
-                        """,
-                        (
-                            update_register,
+                    certificate_response = (
+                        supabase
+                        .table("certificates")
+                        .select("id")
+                        .eq(
+                            "register_no",
+                            update_register
+                        )
+                        .eq(
+                            "certificate_name",
                             update_certificate
                         )
+                        .execute()
                     )
 
-                    certificate_exists = cursor.fetchone()
+                    if certificate_response.data:
 
-                    if certificate_exists:
-
-                        cursor.execute(
-                            """
-                            UPDATE certificates
-                            SET status = ?,
-                                deadline = ?
-                            WHERE register_no = ?
-                            AND certificate_name = ?
-                            """,
-                            (
-                                update_status,
-                                update_deadline,
-                                update_register,
+                        (
+                            supabase
+                            .table("certificates")
+                            .update(
+                                {
+                                    "status": update_status,
+                                    "deadline": update_deadline
+                                }
+                            )
+                            .eq(
+                                "register_no",
+                                update_register
+                            )
+                            .eq(
+                                "certificate_name",
                                 update_certificate
                             )
+                            .execute()
                         )
-
-                        conn.commit()
 
                         st.success(
                             "✅ Certificate updated successfully!"
