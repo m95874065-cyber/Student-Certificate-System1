@@ -1,8 +1,11 @@
+```python
 import streamlit as st
 from datetime import datetime
 import pandas as pd
 import plotly.express as px
 from supabase import create_client
+import hashlib
+import secrets
 
 # ==================================================
 # PAGE SETTINGS
@@ -90,6 +93,47 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==================================================
+# PASSWORD SECURITY
+# ==================================================
+
+def hash_password(password):
+
+    salt = secrets.token_hex(16)
+
+    password_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        100000
+    ).hex()
+
+    return f"{salt}${password_hash}"
+
+
+def verify_password(password, stored_password):
+
+    try:
+
+        salt, stored_hash = stored_password.split("$")
+
+        password_hash = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            salt.encode("utf-8"),
+            100000
+        ).hex()
+
+        return secrets.compare_digest(
+            password_hash,
+            stored_hash
+        )
+
+    except Exception:
+
+        return False
+
+
+# ==================================================
 # HELPER FUNCTIONS
 # ==================================================
 
@@ -98,7 +142,9 @@ def get_students():
     response = (
         supabase
         .table("students")
-        .select("register_no,name,department,password")
+        .select(
+            "register_no,name,department,password"
+        )
         .execute()
     )
 
@@ -110,12 +156,18 @@ def get_student(register_no):
     response = (
         supabase
         .table("students")
-        .select("register_no,name,department,password")
-        .eq("register_no", register_no)
+        .select(
+            "register_no,name,department,password"
+        )
+        .eq(
+            "register_no",
+            register_no
+        )
         .execute()
     )
 
     if response.data:
+
         return response.data[0]
 
     return None
@@ -132,6 +184,7 @@ def get_certificates(register_no=None):
     )
 
     if register_no:
+
         query = query.eq(
             "register_no",
             register_no
@@ -148,18 +201,24 @@ def get_numeric_register_number(register_no):
 
         if "BAI" in register_no:
 
-            number_part = register_no.split("BAI")[-1]
+            number_part = (
+                register_no.split("BAI")[-1]
+            )
 
             return int(number_part)
 
         return 999999999
 
-    except:
+    except Exception:
 
         return 999999999
 
 
-def storage_file_path(register_no, certificate_name, original_name):
+def storage_file_path(
+    register_no,
+    certificate_name,
+    original_name
+):
 
     safe_name = certificate_name.replace(
         " ",
@@ -180,12 +239,17 @@ def storage_file_path(register_no, certificate_name, original_name):
 # ==================================================
 
 if "student_logged_in" not in st.session_state:
+
     st.session_state.student_logged_in = False
 
+
 if "admin_logged_in" not in st.session_state:
+
     st.session_state.admin_logged_in = False
 
+
 if "student_register" not in st.session_state:
+
     st.session_state.student_register = ""
 
 
@@ -239,7 +303,9 @@ if login_type == "Student Login":
 
     if not st.session_state.student_logged_in:
 
-        col1, col2, col3 = st.columns([1, 2, 1])
+        col1, col2, col3 = st.columns(
+            [1, 2, 1]
+        )
 
         with col2:
 
@@ -249,7 +315,9 @@ if login_type == "Student Login":
             )
 
             st.markdown(
-                '<div class="section-title">👨‍🎓 Student Login</div>',
+                '<div class="section-title">'
+                '👨‍🎓 Student Login'
+                '</div>',
                 unsafe_allow_html=True
             )
 
@@ -286,7 +354,10 @@ if login_type == "Student Login":
 
                 if (
                     student
-                    and student["password"] == password
+                    and verify_password(
+                        password,
+                        student["password"]
+                    )
                 ):
 
                     st.session_state.student_logged_in = True
@@ -310,7 +381,9 @@ if login_type == "Student Login":
 
     if st.session_state.student_logged_in:
 
-        register_no = st.session_state.student_register
+        register_no = (
+            st.session_state.student_register
+        )
 
         student = get_student(
             register_no
@@ -331,7 +404,9 @@ if login_type == "Student Login":
             # ==================================================
 
             st.markdown(
-                '<div class="section-title">👤 Student Profile</div>',
+                '<div class="section-title">'
+                '👤 Student Profile'
+                '</div>',
                 unsafe_allow_html=True
             )
 
@@ -340,19 +415,22 @@ if login_type == "Student Login":
             with profile1:
 
                 st.info(
-                    f"👤 Student Name\n\n**{student['name']}**"
+                    f"👤 Student Name\n\n"
+                    f"**{student['name']}**"
                 )
 
             with profile2:
 
                 st.info(
-                    f"🆔 Register Number\n\n**{student['register_no']}**"
+                    f"🆔 Register Number\n\n"
+                    f"**{student['register_no']}**"
                 )
 
             with profile3:
 
                 st.info(
-                    f"🏫 Department\n\n**{student['department']}**"
+                    f"🏫 Department\n\n"
+                    f"**{student['department']}**"
                 )
 
             # ==================================================
@@ -394,7 +472,9 @@ if login_type == "Student Login":
             # ==================================================
 
             st.markdown(
-                '<div class="section-title">📊 Certificate Summary</div>',
+                '<div class="section-title">'
+                '📊 Certificate Summary'
+                '</div>',
                 unsafe_allow_html=True
             )
 
@@ -431,14 +511,17 @@ if login_type == "Student Login":
             if not_updated > 0:
 
                 st.info(
-                    f"ℹ️ {not_updated} certificate(s) waiting for student response."
+                    f"ℹ️ {not_updated} certificate(s) "
+                    "waiting for student response."
                 )
 
             # ==================================================
             # PROGRESS
             # ==================================================
 
-            progress_col1, progress_col2 = st.columns([2, 1])
+            progress_col1, progress_col2 = st.columns(
+                [2, 1]
+            )
 
             with progress_col1:
 
@@ -449,7 +532,8 @@ if login_type == "Student Login":
                 st.progress(progress)
 
                 st.write(
-                    f"**{completed} out of {total} certificates completed**"
+                    f"**{completed} out of {total} "
+                    "certificates completed**"
                 )
 
                 if total == 0:
@@ -461,13 +545,15 @@ if login_type == "Student Login":
                 elif progress == 1:
 
                     st.success(
-                        "🎉 Excellent! All certificates are completed."
+                        "🎉 Excellent! All certificates "
+                        "are completed."
                     )
 
                 elif progress >= 0.5:
 
                     st.info(
-                        "👍 Good progress! Keep completing your certificates."
+                        "👍 Good progress! Keep completing "
+                        "your certificates."
                     )
 
                 else:
@@ -553,11 +639,17 @@ if login_type == "Student Login":
 
             for certificate in certificates:
 
-                name = certificate["certificate_name"]
+                name = certificate[
+                    "certificate_name"
+                ]
 
-                status = certificate["status"]
+                status = certificate[
+                    "status"
+                ]
 
-                deadline = certificate["deadline"]
+                deadline = certificate[
+                    "deadline"
+                ]
 
                 try:
 
@@ -601,7 +693,8 @@ if login_type == "Student Login":
                             if days_left < 0:
 
                                 st.error(
-                                    f"🔴 **{name}** — Deadline expired "
+                                    f"🔴 **{name}** — "
+                                    f"Deadline expired "
                                     f"({abs(days_left)} days ago)"
                                 )
 
@@ -610,7 +703,8 @@ if login_type == "Student Login":
                             elif days_left == 0:
 
                                 st.error(
-                                    f"🚨 **{name}** — Deadline is TODAY!"
+                                    f"🚨 **{name}** — "
+                                    "Deadline is TODAY!"
                                 )
 
                                 deadline_found = True
@@ -618,8 +712,8 @@ if login_type == "Student Login":
                             elif days_left <= 7:
 
                                 st.warning(
-                                    f"🟡 **{name}** — Due in "
-                                    f"{days_left} days "
+                                    f"🟡 **{name}** — "
+                                    f"Due in {days_left} days "
                                     f"({deadline})"
                                 )
 
@@ -657,11 +751,17 @@ if login_type == "Student Login":
 
                     certificate_id = certificate["id"]
 
-                    name = certificate["certificate_name"]
+                    name = certificate[
+                        "certificate_name"
+                    ]
 
-                    status = certificate["status"]
+                    status = certificate[
+                        "status"
+                    ]
 
-                    deadline = certificate["deadline"]
+                    deadline = certificate[
+                        "deadline"
+                    ]
 
                     st.markdown(
                         f"#### 📜 {name}"
@@ -743,22 +843,30 @@ if login_type == "Student Login":
                                 "jpg",
                                 "jpeg"
                             ],
-                            key="upload_" + str(certificate_id)
+                            key="upload_" + str(
+                                certificate_id
+                            )
                         )
 
                         if uploaded_file is not None:
 
-                            original_name = uploaded_file.name
+                            original_name = (
+                                uploaded_file.name
+                            )
 
-                            file_path = storage_file_path(
-                                register_no,
-                                name,
-                                original_name
+                            file_path = (
+                                storage_file_path(
+                                    register_no,
+                                    name,
+                                    original_name
+                                )
                             )
 
                             try:
 
-                                file_bytes = uploaded_file.getvalue()
+                                file_bytes = (
+                                    uploaded_file.getvalue()
+                                )
 
                                 content_type = (
                                     uploaded_file.type
@@ -772,12 +880,13 @@ if login_type == "Student Login":
                                     file_bytes,
                                     {
                                         "content-type": content_type,
-                                        "upsert": "true"
+                                        "upsert": True
                                     }
                                 )
 
                                 st.success(
-                                    f"✅ {name} certificate uploaded successfully!"
+                                    f"✅ {name} certificate "
+                                    "uploaded successfully!"
                                 )
 
                             except Exception as e:
@@ -793,7 +902,8 @@ if login_type == "Student Login":
                         )
 
                         st.caption(
-                            "📌 Please complete this certificate before the deadline."
+                            "📌 Please complete this certificate "
+                            "before the deadline."
                         )
 
                     else:
@@ -834,7 +944,9 @@ else:
 
     if not st.session_state.admin_logged_in:
 
-        col1, col2, col3 = st.columns([1, 2, 1])
+        col1, col2, col3 = st.columns(
+            [1, 2, 1]
+        )
 
         with col2:
 
@@ -844,7 +956,9 @@ else:
             )
 
             st.markdown(
-                '<div class="section-title">👨‍🏫 Admin Login</div>',
+                '<div class="section-title">'
+                '👨‍🏫 Admin Login'
+                '</div>',
                 unsafe_allow_html=True
             )
 
@@ -898,7 +1012,9 @@ else:
         )
 
         st.markdown(
-            '<div class="section-title">📊 Admin Dashboard</div>',
+            '<div class="section-title">'
+            '📊 Admin Dashboard'
+            '</div>',
             unsafe_allow_html=True
         )
 
@@ -1038,14 +1154,25 @@ else:
 
                         try:
 
+                            hashed_password = hash_password(
+                                new_password
+                            )
+
                             supabase.table(
                                 "students"
                             ).insert(
                                 {
-                                    "register_no": new_register.strip(),
-                                    "name": new_name.strip(),
-                                    "department": new_department.strip(),
-                                    "password": new_password
+                                    "register_no":
+                                        new_register.strip(),
+
+                                    "name":
+                                        new_name.strip(),
+
+                                    "department":
+                                        new_department.strip(),
+
+                                    "password":
+                                        hashed_password
                                 }
                             ).execute()
 
@@ -1077,15 +1204,17 @@ else:
 
             students_for_delete = sorted(
                 all_students,
-                key=lambda x: get_numeric_register_number(
-                    x["register_no"]
-                )
+                key=lambda x:
+                    get_numeric_register_number(
+                        x["register_no"]
+                    )
             )
 
             if students_for_delete:
 
                 student_options = {
-                    f"{student['name']} - {student['register_no']}":
+                    f"{student['name']} - "
+                    f"{student['register_no']}":
                     student["register_no"]
                     for student in students_for_delete
                 }
@@ -1101,7 +1230,9 @@ else:
                 ]
 
                 st.warning(
-                    "⚠️ Deleting this student will also delete all certificates assigned to this student."
+                    "⚠️ Deleting this student will also "
+                    "delete all certificates assigned "
+                    "to this student."
                 )
 
                 if st.button(
@@ -1126,7 +1257,8 @@ else:
                         ).execute()
 
                         st.success(
-                            "✅ Student and their certificates deleted successfully!"
+                            "✅ Student and their certificates "
+                            "deleted successfully!"
                         )
 
                         st.rerun()
@@ -1174,7 +1306,8 @@ else:
             )
 
             st.caption(
-                "ℹ️ If 'Status' is selected, the student will choose Yes or No."
+                "ℹ️ If 'Status' is selected, the student "
+                "will choose Yes or No."
             )
 
             certificate_deadline = st.text_input(
@@ -1204,15 +1337,20 @@ else:
                         )
 
                         duplicate = any(
-                            certificate["certificate_name"].lower()
-                            == certificate_name.strip().lower()
-                            for certificate in existing_certificates
+                            certificate[
+                                "certificate_name"
+                            ].lower()
+                            ==
+                            certificate_name.strip().lower()
+                            for certificate
+                            in existing_certificates
                         )
 
                         if duplicate:
 
                             st.error(
-                                "❌ This certificate already exists for this student!"
+                                "❌ This certificate already "
+                                "exists for this student!"
                             )
 
                         else:
@@ -1223,10 +1361,17 @@ else:
                                     "certificates"
                                 ).insert(
                                     {
-                                        "register_no": certificate_register.strip(),
-                                        "certificate_name": certificate_name.strip(),
-                                        "status": certificate_status,
-                                        "deadline": certificate_deadline.strip()
+                                        "register_no":
+                                            certificate_register.strip(),
+
+                                        "certificate_name":
+                                            certificate_name.strip(),
+
+                                        "status":
+                                            certificate_status,
+
+                                        "deadline":
+                                            certificate_deadline.strip()
                                     }
                                 ).execute()
 
@@ -1280,14 +1425,21 @@ else:
 
                     certificate_id = certificate["id"]
 
-                    register = certificate["register_no"]
+                    register = certificate[
+                        "register_no"
+                    ]
 
-                    name = certificate["certificate_name"]
+                    name = certificate[
+                        "certificate_name"
+                    ]
 
-                    status = certificate["status"]
+                    status = certificate[
+                        "status"
+                    ]
 
                     display_name = (
-                        f"{register} - {name} ({status})"
+                        f"{register} - "
+                        f"{name} ({status})"
                     )
 
                     certificate_options[
@@ -1296,16 +1448,21 @@ else:
 
                 selected_certificate = st.selectbox(
                     "Select Certificate to Remove",
-                    list(certificate_options.keys()),
+                    list(
+                        certificate_options.keys()
+                    ),
                     key="delete_certificate_select"
                 )
 
-                selected_certificate_id = certificate_options[
-                    selected_certificate
-                ]
+                selected_certificate_id = (
+                    certificate_options[
+                        selected_certificate
+                    ]
+                )
 
                 st.warning(
-                    "⚠️ This certificate record will be permanently deleted."
+                    "⚠️ This certificate record will be "
+                    "permanently deleted."
                 )
 
                 if st.button(
@@ -1352,9 +1509,10 @@ else:
 
             students = sorted(
                 all_students,
-                key=lambda x: get_numeric_register_number(
-                    x["register_no"]
-                )
+                key=lambda x:
+                    get_numeric_register_number(
+                        x["register_no"]
+                    )
             )
 
             if students:
@@ -1371,6 +1529,7 @@ else:
                             "Department":
                                 student["department"]
                         }
+
                         for student in students
                     ]
                 )
@@ -1403,20 +1562,27 @@ else:
 
             all_students_sorted = sorted(
                 all_students,
-                key=lambda x: get_numeric_register_number(
-                    x["register_no"]
-                )
+                key=lambda x:
+                    get_numeric_register_number(
+                        x["register_no"]
+                    )
             )
 
             if all_students_sorted:
 
                 for student_data in all_students_sorted:
 
-                    student_register = student_data["register_no"]
+                    student_register = student_data[
+                        "register_no"
+                    ]
 
-                    student_name = student_data["name"]
+                    student_name = student_data[
+                        "name"
+                    ]
 
-                    student_department = student_data["department"]
+                    student_department = student_data[
+                        "department"
+                    ]
 
                     student_certificates = get_certificates(
                         student_register
@@ -1427,7 +1593,9 @@ else:
                     )
 
                     with st.expander(
-                        f"📁 {student_name}  |  🆔 {student_register}  |  📜 {certificate_count} Certificate(s)",
+                        f"📁 {student_name}  |  "
+                        f"🆔 {student_register}  |  "
+                        f"📜 {certificate_count} Certificate(s)",
                         expanded=False
                     ):
 
@@ -1435,24 +1603,29 @@ else:
                             f"### 👤 {student_name}"
                         )
 
-                        profile_col1, profile_col2, profile_col3 = st.columns(3)
+                        profile_col1, profile_col2, profile_col3 = (
+                            st.columns(3)
+                        )
 
                         with profile_col1:
 
                             st.info(
-                                f"🆔 Register Number\n\n**{student_register}**"
+                                f"🆔 Register Number\n\n"
+                                f"**{student_register}**"
                             )
 
                         with profile_col2:
 
                             st.info(
-                                f"👤 Student Name\n\n**{student_name}**"
+                                f"👤 Student Name\n\n"
+                                f"**{student_name}**"
                             )
 
                         with profile_col3:
 
                             st.info(
-                                f"🏫 Department\n\n**{student_department}**"
+                                f"🏫 Department\n\n"
+                                f"**{student_department}**"
                             )
 
                         st.divider()
@@ -1463,28 +1636,39 @@ else:
                                 "### 📜 All Certificates"
                             )
 
-                            for certificate in student_certificates:
+                            for certificate in (
+                                student_certificates
+                            ):
 
-                                certificate_name = certificate[
-                                    "certificate_name"
-                                ]
+                                certificate_name = (
+                                    certificate[
+                                        "certificate_name"
+                                    ]
+                                )
 
-                                certificate_status = certificate[
-                                    "status"
-                                ]
+                                certificate_status = (
+                                    certificate[
+                                        "status"
+                                    ]
+                                )
 
-                                certificate_deadline = certificate[
-                                    "deadline"
-                                ]
+                                certificate_deadline = (
+                                    certificate[
+                                        "deadline"
+                                    ]
+                                )
 
-                                cert_col1, cert_col2, cert_col3 = st.columns(
-                                    [2, 1, 1]
+                                cert_col1, cert_col2, cert_col3 = (
+                                    st.columns(
+                                        [2, 1, 1]
+                                    )
                                 )
 
                                 with cert_col1:
 
                                     st.markdown(
-                                        f"**📜 {certificate_name}**"
+                                        f"**📜 "
+                                        f"{certificate_name}**"
                                     )
 
                                 with cert_col2:
@@ -1510,7 +1694,8 @@ else:
                                 with cert_col3:
 
                                     st.write(
-                                        f"📅 **{certificate_deadline}**"
+                                        f"📅 **"
+                                        f"{certificate_deadline}**"
                                     )
 
                                 st.divider()
@@ -1518,7 +1703,8 @@ else:
                         else:
 
                             st.info(
-                                "📭 No certificates assigned to this student."
+                                "📭 No certificates assigned "
+                                "to this student."
                             )
 
             else:
@@ -1581,11 +1767,16 @@ else:
                     for certificate in matching_certificates:
 
                         if (
-                            certificate["certificate_name"].lower()
-                            == update_certificate.strip().lower()
+                            certificate[
+                                "certificate_name"
+                            ].lower()
+                            ==
+                            update_certificate.strip().lower()
                         ):
 
-                            matching_certificate = certificate
+                            matching_certificate = (
+                                certificate
+                            )
 
                             break
 
@@ -1597,8 +1788,11 @@ else:
                                 "certificates"
                             ).update(
                                 {
-                                    "status": update_status,
-                                    "deadline": update_deadline.strip()
+                                    "status":
+                                        update_status,
+
+                                    "deadline":
+                                        update_deadline.strip()
                                 }
                             ).eq(
                                 "id",
@@ -1639,9 +1833,12 @@ else:
 
             try:
 
-                storage_files = supabase.storage.from_(
-                    STORAGE_BUCKET
-                ).list()
+                storage_files = (
+                    supabase
+                    .storage
+                    .from_(STORAGE_BUCKET)
+                    .list()
+                )
 
                 if storage_files:
 
@@ -1695,14 +1892,18 @@ else:
 
                                 try:
 
-                                    supabase.storage.from_(
-                                        STORAGE_BUCKET
-                                    ).remove(
-                                        [file_name]
+                                    (
+                                        supabase
+                                        .storage
+                                        .from_(STORAGE_BUCKET)
+                                        .remove(
+                                            [file_name]
+                                        )
                                     )
 
                                     st.success(
-                                        f"✅ {file_name} deleted successfully!"
+                                        f"✅ {file_name} "
+                                        "deleted successfully!"
                                     )
 
                                     st.rerun()
@@ -1755,3 +1956,4 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+```
