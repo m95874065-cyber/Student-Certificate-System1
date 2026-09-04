@@ -229,6 +229,23 @@ st.markdown(
         font-size: 14px;
     }
 
+    .college-name {
+        text-align: center;
+        margin-top: 10px;
+        margin-bottom: 20px;
+    }
+
+    .college-name h2 {
+        margin-bottom: 3px;
+        font-size: 28px;
+        font-weight: 700;
+    }
+
+    .college-name p {
+        margin-top: 0;
+        font-size: 16px;
+    }
+
     </style>
     """,
     unsafe_allow_html=True
@@ -346,6 +363,20 @@ with st.sidebar:
 # ============================================================
 
 if not st.session_state.logged_in:
+
+    # ========================================================
+    # COLLEGE NAME
+    # ========================================================
+
+    st.markdown(
+        """
+        <div class="college-name">
+            <h2>RATHINAM GLOBAL UNIVERSITY</h2>
+            <p>To Be Deemed University</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     # ========================================================
     # STUDENT LOGIN
@@ -536,10 +567,6 @@ if (
 
     if student:
 
-        # ----------------------------------------------------
-        # STUDENT INFORMATION
-        # ----------------------------------------------------
-
         col1, col2, col3 = st.columns(3)
 
         with col1:
@@ -571,10 +598,6 @@ if (
                 {student["department"]}
                 """
             )
-
-        # ----------------------------------------------------
-        # CERTIFICATE COUNTS
-        # ----------------------------------------------------
 
         total_certificates = len(
             certificates
@@ -628,10 +651,6 @@ if (
                 not_updated_certificates
             )
 
-        # ----------------------------------------------------
-        # PROGRESS
-        # ----------------------------------------------------
-
         if total_certificates > 0:
 
             progress = (
@@ -656,10 +675,6 @@ if (
             f"{total_certificates} certificates completed "
             f"({progress * 100:.0f}%)**"
         )
-
-        # ----------------------------------------------------
-        # PIE CHART
-        # ----------------------------------------------------
 
         if total_certificates > 0:
 
@@ -700,10 +715,6 @@ if (
                     use_container_width=True
                 )
 
-        # ----------------------------------------------------
-        # CERTIFICATE DETAILS
-        # ----------------------------------------------------
-
         st.markdown(
             "### 📋 Certificate Details"
         )
@@ -743,10 +754,6 @@ if (
                         f"Status: ❓ Not Updated | "
                         f"Deadline: {deadline}"
                     )
-
-                # ------------------------------------------------
-                # STUDENT STATUS UPDATE
-                # ------------------------------------------------
 
                 if status == "Completed":
 
@@ -807,10 +814,6 @@ if (
 
                         st.rerun()
 
-                # ------------------------------------------------
-                # DEADLINE ALERT
-                # ------------------------------------------------
-
                 try:
 
                     deadline_date = datetime.strptime(
@@ -849,10 +852,6 @@ if (
                 except:
 
                     pass
-
-                # ------------------------------------------------
-                # UPLOAD CERTIFICATE
-                # ------------------------------------------------
 
                 if status == "Completed":
 
@@ -945,10 +944,6 @@ if (
 
     all_certificates = get_certificates()
 
-    # --------------------------------------------------------
-    # SORT STUDENTS
-    # --------------------------------------------------------
-
     all_students = sorted(
         all_students,
         key=lambda x:
@@ -957,10 +952,6 @@ if (
         )
     )
 
-    # --------------------------------------------------------
-    # SORT CERTIFICATES
-    # --------------------------------------------------------
-
     all_certificates = sorted(
         all_certificates,
         key=lambda x:
@@ -968,10 +959,6 @@ if (
             x["register_no"]
         )
     )
-
-    # --------------------------------------------------------
-    # STATISTICS
-    # --------------------------------------------------------
 
     total_students = len(
         all_students
@@ -1026,10 +1013,6 @@ if (
         )
 
     st.markdown("---")
-
-    # --------------------------------------------------------
-    # ADMIN MENU
-    # --------------------------------------------------------
 
     admin_menu = st.selectbox(
         "Admin Menu",
@@ -1581,10 +1564,6 @@ if (
 
         if all_certificates:
 
-            # ------------------------------------------------
-            # GET STUDENT DETAILS
-            # ------------------------------------------------
-
             student_lookup = {}
 
             for student in all_students:
@@ -1592,10 +1571,6 @@ if (
                 student_lookup[
                     student["register_no"]
                 ] = student
-
-            # ------------------------------------------------
-            # CREATE ANALYTICS DATA
-            # ------------------------------------------------
 
             analytics_rows = []
 
@@ -1664,10 +1639,6 @@ if (
                 analytics_rows
             )
 
-            # ------------------------------------------------
-            # SUMMARY COUNT
-            # ------------------------------------------------
-
             summary_df = (
                 analytics_df
                 .groupby(
@@ -1709,10 +1680,6 @@ if (
                 ]
             ]
 
-            # ------------------------------------------------
-            # SUMMARY TABLE
-            # ------------------------------------------------
-
             st.markdown(
                 "### 📋 Certificate-wise Status"
             )
@@ -1722,10 +1689,6 @@ if (
                 use_container_width=True,
                 hide_index=True
             )
-
-            # ------------------------------------------------
-            # OVERALL TOTALS
-            # ------------------------------------------------
 
             analytics_completed = int(
                 summary_df[
@@ -1785,10 +1748,6 @@ if (
                     analytics_not_updated
                 )
 
-            # ------------------------------------------------
-            # BAR CHART
-            # ------------------------------------------------
-
             st.markdown(
                 "### 📊 Certificate-wise Comparison"
             )
@@ -1840,7 +1799,6 @@ if (
                 "### 👨‍🎓 Student Details by Certificate"
             )
 
-            # Get unique certificate names
             certificate_names = sorted(
                 analytics_df[
                     "Certificate"
@@ -1880,17 +1838,9 @@ if (
                     ]
                 )
 
-                # ---------------------------------------------
-                # CERTIFICATE FOLDER
-                # ---------------------------------------------
-
                 with st.expander(
                     f"📁 {certificate_name}"
                 ):
-
-                    # -----------------------------------------
-                    # COUNTS
-                    # -----------------------------------------
 
                     col1, col2, col3, col4 = st.columns(4)
 
@@ -1923,10 +1873,6 @@ if (
                         )
 
                     st.markdown("---")
-
-                    # -----------------------------------------
-                    # COMPLETED STUDENTS
-                    # -----------------------------------------
 
                     st.markdown(
                         "#### ✅ Completed Students"
@@ -1965,10 +1911,6 @@ if (
                             "No students have completed this certificate."
                         )
 
-                    # -----------------------------------------
-                    # PENDING STUDENTS
-                    # -----------------------------------------
-
                     st.markdown(
                         "#### ⏳ Pending Students"
                     )
@@ -2006,10 +1948,6 @@ if (
                             "No pending students."
                         )
 
-                    # -----------------------------------------
-                    # NOT UPDATED STUDENTS
-                    # -----------------------------------------
-
                     st.markdown(
                         "#### ❓ Not Updated Students"
                     )
@@ -2026,7 +1964,6 @@ if (
                             .reset_index(
                                 drop=True
                             )
-                        )
 
                         not_updated_display.index = (
                             not_updated_display.index + 1
