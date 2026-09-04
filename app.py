@@ -132,6 +132,57 @@ def get_certificates(register_no=None):
 
 
 # ============================================================
+# ACHIEVEMENT BADGES
+# ============================================================
+
+def get_achievement_badge(completed, total):
+
+    if total == 0:
+
+        return (
+            "🌱 Getting Started",
+            "Start completing your certificates."
+        )
+
+    progress = completed / total
+
+    if progress == 1:
+
+        return (
+            "🏆 Certificate Champion",
+            "Amazing! All certificates completed."
+        )
+
+    elif progress >= 0.75:
+
+        return (
+            "🥇 Skill Master",
+            "Excellent progress! Keep going."
+        )
+
+    elif progress >= 0.50:
+
+        return (
+            "🥈 Skill Builder",
+            "Great progress! You are halfway there."
+        )
+
+    elif progress > 0:
+
+        return (
+            "🏅 Beginner Achiever",
+            "Good start! Keep completing certificates."
+        )
+
+    else:
+
+        return (
+            "🌱 Getting Started",
+            "Complete your first certificate to earn a badge."
+        )
+
+
+# ============================================================
 # REGISTER NUMBER SORTING
 # ============================================================
 
@@ -372,7 +423,6 @@ if not st.session_state.logged_in:
         """
         <div class="college-name">
             <h2>RATHINAM GLOBAL DEEMED TO BE UNIVERSITY</h2>
-            
         </div>
         """,
         unsafe_allow_html=True
@@ -675,6 +725,47 @@ if (
             f"{total_certificates} certificates completed "
             f"({progress * 100:.0f}%)**"
         )
+
+        # ====================================================
+        # 🏆 ACHIEVEMENT BADGE
+        # ====================================================
+
+        badge_name, badge_message = get_achievement_badge(
+            completed_certificates,
+            total_certificates
+        )
+
+        st.markdown(
+            "### 🏆 My Achievement"
+        )
+
+        badge_col1, badge_col2 = st.columns(
+            [1, 3]
+        )
+
+        with badge_col1:
+
+            st.markdown(
+                f"""
+                <div style="
+                    text-align:center;
+                    padding:20px;
+                    border-radius:15px;
+                    border:2px solid #dddddd;
+                    font-size:50px;
+                ">
+                    {badge_name.split(" ")[0]}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        with badge_col2:
+
+            st.success(
+                f"**{badge_name}**\n\n"
+                f"{badge_message}"
+            )
 
         if total_certificates > 0:
 
