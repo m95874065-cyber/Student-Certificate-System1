@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 from datetime import datetime
 import pandas as pd
@@ -305,11 +306,15 @@ with st.sidebar:
 
         if login_type == "Student":
 
-            st.success("👨‍🎓 Student Logged In")
+            st.success(
+                "👨‍🎓 Student Logged In"
+            )
 
         else:
 
-            st.success("👨‍💼 Admin Logged In")
+            st.success(
+                "👨‍💼 Admin Logged In"
+            )
 
         st.markdown("---")
 
@@ -397,7 +402,6 @@ if not st.session_state.logged_in:
 
                     stored_password = student["password"]
 
-                    # New hashed password
                     if verify_password(
                         password,
                         stored_password
@@ -411,7 +415,6 @@ if not st.session_state.logged_in:
 
                         st.rerun()
 
-                    # Old plain password
                     elif stored_password == password:
 
                         new_hashed_password = (
@@ -949,6 +952,18 @@ if (
 
     all_students = sorted(
         all_students,
+        key=lambda x:
+        get_numeric_register_number(
+            x["register_no"]
+        )
+    )
+
+    # --------------------------------------------------------
+    # SORT CERTIFICATES
+    # --------------------------------------------------------
+
+    all_certificates = sorted(
+        all_certificates,
         key=lambda x:
         get_numeric_register_number(
             x["register_no"]
@@ -1562,10 +1577,22 @@ if (
 
         st.write(
             "View certificate-wise completion status "
-            "of all students."
+            "with student names and register numbers."
         )
 
         if all_certificates:
+
+            # ------------------------------------------------
+            # GET STUDENT DETAILS
+            # ------------------------------------------------
+
+            student_lookup = {}
+
+            for student in all_students:
+
+                student_lookup[
+                    student["register_no"]
+                ] = student
 
             # ------------------------------------------------
             # CREATE ANALYTICS DATA
@@ -1576,11 +1603,35 @@ if (
             for certificate in all_certificates:
 
                 certificate_name = (
-                    certificate["certificate_name"]
+                    certificate[
+                        "certificate_name"
+                    ]
                     .strip()
                 )
 
-                status = certificate["status"]
+                register_no = (
+                    certificate[
+                        "register_no"
+                    ]
+                )
+
+                student = student_lookup.get(
+                    register_no
+                )
+
+                if student:
+
+                    student_name = (
+                        student["name"]
+                    )
+
+                else:
+
+                    student_name = "Unknown Student"
+
+                status = certificate[
+                    "status"
+                ]
 
                 if status == "Completed":
 
@@ -1599,6 +1650,12 @@ if (
                         "Certificate":
                         certificate_name,
 
+                        "Register Number":
+                        register_no,
+
+                        "Student Name":
+                        student_name,
+
                         "Status":
                         status_name
                     }
@@ -1609,7 +1666,7 @@ if (
             )
 
             # ------------------------------------------------
-            # COUNT STATUS
+            # SUMMARY COUNT
             # ------------------------------------------------
 
             summary_df = (
@@ -1626,8 +1683,6 @@ if (
                 )
                 .reset_index()
             )
-
-            # Make sure all columns exist
 
             for column in [
                 "Completed",
@@ -1656,7 +1711,7 @@ if (
             ]
 
             # ------------------------------------------------
-            # DISPLAY TABLE
+            # SUMMARY TABLE
             # ------------------------------------------------
 
             st.markdown(
@@ -1777,6 +1832,221 @@ if (
                 fig,
                 use_container_width=True
             )
+
+            # =================================================
+            # STUDENT-WISE DETAILS
+            # =================================================
+
+            st.markdown(
+                "### 👨‍🎓 Student Details by Certificate"
+            )
+
+            # Get unique certificate names
+            certificate_names = sorted(
+                analytics_df[
+                    "Certificate"
+                ].unique()
+            )
+
+            for certificate_name in certificate_names:
+
+                certificate_data = analytics_df[
+                    analytics_df[
+                        "Certificate"
+                    ]
+                    == certificate_name
+                ]
+
+                completed_students = (
+                    certificate_data[
+                        certificate_data[
+                            "Status"
+                        ] == "Completed"
+                    ]
+                )
+
+                pending_students = (
+                    certificate_data[
+                        certificate_data[
+                            "Status"
+                        ] == "Pending"
+                    ]
+                )
+
+                not_updated_students = (
+                    certificate_data[
+                        certificate_data[
+                            "Status"
+                        ] == "Not Updated"
+                    ]
+                )
+
+                # ---------------------------------------------
+                # CERTIFICATE FOLDER
+                # ---------------------------------------------
+
+                with st.expander(
+                    f"📁 {certificate_name}"
+                ):
+
+                    # -----------------------------------------
+                    # COUNTS
+                    # -----------------------------------------
+
+                    col1, col2, col3, col4 = st.columns(4)
+
+                    with col1:
+
+                        st.metric(
+                            "📜 Total",
+                            len(certificate_data)
+                        )
+
+                    with col2:
+
+                        st.metric(
+                            "✅ Completed",
+                            len(completed_students)
+                        )
+
+                    with col3:
+
+                        st.metric(
+                            "⏳ Pending",
+                            len(pending_students)
+                        )
+
+                    with col4:
+
+                        st.metric(
+                            "❓ Not Updated",
+                            len(not_updated_students)
+                        )
+
+                    st.markdown("---")
+
+                    # -----------------------------------------
+                    # COMPLETED STUDENTS
+                    # -----------------------------------------
+
+                    st.markdown(
+                        "#### ✅ Completed Students"
+                    )
+
+                    if not completed_students.empty:
+
+                        completed_display = (
+                            completed_students[
+                                [
+                                    "Register Number",
+                                    "Student Name"
+                                ]
+                            ]
+                            .reset_index(
+                                drop=True
+                            )
+                        )
+
+                        completed_display.index = (
+                            completed_display.index + 1
+                        )
+
+                        completed_display.index.name = (
+                            "S.No"
+                        )
+
+                        st.dataframe(
+                            completed_display,
+                            use_container_width=True
+                        )
+
+                    else:
+
+                        st.info(
+                            "No students have completed this certificate."
+                        )
+
+                    # -----------------------------------------
+                    # PENDING STUDENTS
+                    # -----------------------------------------
+
+                    st.markdown(
+                        "#### ⏳ Pending Students"
+                    )
+
+                    if not pending_students.empty:
+
+                        pending_display = (
+                            pending_students[
+                                [
+                                    "Register Number",
+                                    "Student Name"
+                                ]
+                            ]
+                            .reset_index(
+                                drop=True
+                            )
+                        )
+
+                        pending_display.index = (
+                            pending_display.index + 1
+                        )
+
+                        pending_display.index.name = (
+                            "S.No"
+                        )
+
+                        st.dataframe(
+                            pending_display,
+                            use_container_width=True
+                        )
+
+                    else:
+
+                        st.info(
+                            "No pending students."
+                        )
+
+                    # -----------------------------------------
+                    # NOT UPDATED STUDENTS
+                    # -----------------------------------------
+
+                    st.markdown(
+                        "#### ❓ Not Updated Students"
+                    )
+
+                    if not not_updated_students.empty:
+
+                        not_updated_display = (
+                            not_updated_students[
+                                [
+                                    "Register Number",
+                                    "Student Name"
+                                ]
+                            ]
+                            .reset_index(
+                                drop=True
+                            )
+                        )
+
+                        not_updated_display.index = (
+                            not_updated_display.index + 1
+                        )
+
+                        not_updated_display.index.name = (
+                            "S.No"
+                        )
+
+                        st.dataframe(
+                            not_updated_display,
+                            use_container_width=True
+                        )
+
+                    else:
+
+                        st.info(
+                            "No students with Not Updated status."
+                        )
 
         else:
 
@@ -2044,3 +2314,4 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+```
