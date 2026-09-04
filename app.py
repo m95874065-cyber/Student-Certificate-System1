@@ -1,6 +1,5 @@
 import streamlit as st
 from datetime import datetime
-import os
 import pandas as pd
 import plotly.express as px
 from supabase import create_client
@@ -15,6 +14,20 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# ==================================================
+# SUPABASE CONNECTION
+# ==================================================
+
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+
+supabase = create_client(
+    SUPABASE_URL,
+    SUPABASE_KEY
+)
+
+STORAGE_BUCKET = "certificates"
 
 # ==================================================
 # CUSTOM CSS
@@ -66,14 +79,6 @@ st.markdown("""
     margin-bottom: 15px;
 }
 
-.student-folder {
-    padding: 18px;
-    border-radius: 14px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    margin-bottom: 12px;
-}
-
 .footer {
     text-align: center;
     color: #6b7280;
@@ -85,32 +90,23 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==================================================
-# SUPABASE DATABASE
-# ==================================================
-
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-
-supabase = create_client(
-    SUPABASE_URL,
-    SUPABASE_KEY
-)
-
-# ==================================================
 # HELPER FUNCTIONS
 # ==================================================
 
 def get_students():
+
     response = (
         supabase
         .table("students")
         .select("register_no,name,department,password")
         .execute()
     )
+
     return response.data or []
 
 
 def get_student(register_no):
+
     response = (
         supabase
         .table("students")
@@ -126,14 +122,20 @@ def get_student(register_no):
 
 
 def get_certificates(register_no=None):
+
     query = (
         supabase
         .table("certificates")
-        .select("id,register_no,certificate_name,status,deadline")
+        .select(
+            "id,register_no,certificate_name,status,deadline"
+        )
     )
 
     if register_no:
-        query = query.eq("register_no", register_no)
+        query = query.eq(
+            "register_no",
+            register_no
+        )
 
     response = query.order("id").execute()
 
@@ -141,33 +143,35 @@ def get_certificates(register_no=None):
 
 
 def get_numeric_register_number(register_no):
+
     try:
+
         if "BAI" in register_no:
+
             number_part = register_no.split("BAI")[-1]
+
             return int(number_part)
+
         return 999999999
+
     except:
+
         return 999999999
 
 
-def sort_students_numeric(students):
-    return sorted(
-        students,
-        key=lambda student: get_numeric_register_number(
-            student["register_no"]
-        )
+def storage_file_path(register_no, certificate_name, original_name):
+
+    safe_name = certificate_name.replace(
+        " ",
+        "_"
     )
 
-
-def sort_certificates_numeric(certificates):
-    return sorted(
-        certificates,
-        key=lambda certificate: (
-            get_numeric_register_number(
-                certificate["register_no"]
-            ),
-            certificate["certificate_name"].lower()
-        )
+    return (
+        register_no
+        + "_"
+        + safe_name
+        + "_"
+        + original_name
     )
 
 
@@ -184,6 +188,7 @@ if "admin_logged_in" not in st.session_state:
 if "student_register" not in st.session_state:
     st.session_state.student_register = ""
 
+
 # ==================================================
 # HERO HEADER
 # ==================================================
@@ -194,6 +199,7 @@ st.markdown("""
 <p>Certificate Tracking • Deadline Management • Student Progress</p>
 </div>
 """, unsafe_allow_html=True)
+
 
 # ==================================================
 # SIDEBAR
@@ -223,6 +229,7 @@ with st.sidebar:
     st.info(
         "🎓 AI & DS College Certificate Tracking System"
     )
+
 
 # ==================================================
 # STUDENT LOGIN
@@ -273,7 +280,9 @@ if login_type == "Student Login":
 
             if login_button:
 
-                student = get_student(register_no)
+                student = get_student(
+                    register_no.strip()
+                )
 
                 if (
                     student
@@ -281,7 +290,10 @@ if login_type == "Student Login":
                 ):
 
                     st.session_state.student_logged_in = True
-                    st.session_state.student_register = register_no
+
+                    st.session_state.student_register = (
+                        register_no.strip()
+                    )
 
                     st.rerun()
 
@@ -291,6 +303,7 @@ if login_type == "Student Login":
                         "❌ Invalid Register Number or Password"
                     )
 
+
     # ==================================================
     # STUDENT DASHBOARD
     # ==================================================
@@ -299,7 +312,9 @@ if login_type == "Student Login":
 
         register_no = st.session_state.student_register
 
-        student = get_student(register_no)
+        student = get_student(
+            register_no
+        )
 
         if student:
 
@@ -323,16 +338,19 @@ if login_type == "Student Login":
             profile1, profile2, profile3 = st.columns(3)
 
             with profile1:
+
                 st.info(
                     f"👤 Student Name\n\n**{student['name']}**"
                 )
 
             with profile2:
+
                 st.info(
                     f"🆔 Register Number\n\n**{student['register_no']}**"
                 )
 
             with profile3:
+
                 st.info(
                     f"🏫 Department\n\n**{student['department']}**"
                 )
@@ -341,7 +359,9 @@ if login_type == "Student Login":
             # GET CERTIFICATES
             # ==================================================
 
-            certificates = get_certificates(register_no)
+            certificates = get_certificates(
+                register_no
+            )
 
             total = len(certificates)
 
@@ -381,30 +401,35 @@ if login_type == "Student Login":
             col1, col2, col3, col4 = st.columns(4)
 
             with col1:
+
                 st.metric(
                     "📜 Total Certificates",
                     total
                 )
 
             with col2:
+
                 st.metric(
                     "✅ Completed",
                     completed
                 )
 
             with col3:
+
                 st.metric(
                     "⏳ Pending",
                     pending
                 )
 
             with col4:
+
                 st.metric(
                     "📈 Progress",
                     f"{int(progress * 100)}%"
                 )
 
             if not_updated > 0:
+
                 st.info(
                     f"ℹ️ {not_updated} certificate(s) waiting for student response."
                 )
@@ -428,21 +453,25 @@ if login_type == "Student Login":
                 )
 
                 if total == 0:
+
                     st.info(
                         "ℹ️ No certificates assigned yet."
                     )
 
                 elif progress == 1:
+
                     st.success(
                         "🎉 Excellent! All certificates are completed."
                     )
 
                 elif progress >= 0.5:
+
                     st.info(
                         "👍 Good progress! Keep completing your certificates."
                     )
 
                 else:
+
                     st.warning(
                         "⚠️ You have several certificates pending."
                     )
@@ -525,7 +554,9 @@ if login_type == "Student Login":
             for certificate in certificates:
 
                 name = certificate["certificate_name"]
+
                 status = certificate["status"]
+
                 deadline = certificate["deadline"]
 
                 try:
@@ -533,23 +564,27 @@ if login_type == "Student Login":
                     deadline_date = None
 
                     try:
+
                         deadline_date = datetime.strptime(
                             deadline,
                             "%d %b %Y"
                         )
 
                     except ValueError:
+
                         pass
 
                     if deadline_date is None:
 
                         try:
+
                             deadline_date = datetime.strptime(
                                 deadline,
                                 "%A %d/%m/%Y"
                             )
 
                         except ValueError:
+
                             pass
 
                     if deadline_date is not None:
@@ -591,6 +626,7 @@ if login_type == "Student Login":
                                 deadline_found = True
 
                 except Exception:
+
                     pass
 
             if not deadline_found:
@@ -620,8 +656,11 @@ if login_type == "Student Login":
                 for certificate in certificates:
 
                     certificate_id = certificate["id"]
+
                     name = certificate["certificate_name"]
+
                     status = certificate["status"]
+
                     deadline = certificate["deadline"]
 
                     st.markdown(
@@ -673,17 +712,16 @@ if login_type == "Student Login":
 
                         if new_status != status:
 
-                            (
-                                supabase
-                                .table("certificates")
-                                .update(
-                                    {
-                                        "status": new_status
-                                    }
-                                )
-                                .eq("id", certificate_id)
-                                .execute()
-                            )
+                            supabase.table(
+                                "certificates"
+                            ).update(
+                                {
+                                    "status": new_status
+                                }
+                            ).eq(
+                                "id",
+                                certificate_id
+                            ).execute()
 
                             st.rerun()
 
@@ -710,37 +748,43 @@ if login_type == "Student Login":
 
                         if uploaded_file is not None:
 
-                            upload_folder = "certificates"
+                            original_name = uploaded_file.name
 
-                            if not os.path.exists(upload_folder):
-                                os.makedirs(upload_folder)
-
-                            safe_name = name.replace(
-                                " ",
-                                "_"
+                            file_path = storage_file_path(
+                                register_no,
+                                name,
+                                original_name
                             )
 
-                            file_path = os.path.join(
-                                upload_folder,
-                                register_no +
-                                "_" +
-                                safe_name +
-                                "_" +
-                                uploaded_file.name
-                            )
+                            try:
 
-                            with open(
-                                file_path,
-                                "wb"
-                            ) as f:
+                                file_bytes = uploaded_file.getvalue()
 
-                                f.write(
-                                    uploaded_file.getbuffer()
+                                content_type = (
+                                    uploaded_file.type
+                                    or "application/octet-stream"
                                 )
 
-                            st.success(
-                                f"✅ {name} certificate uploaded successfully!"
-                            )
+                                supabase.storage.from_(
+                                    STORAGE_BUCKET
+                                ).upload(
+                                    file_path,
+                                    file_bytes,
+                                    {
+                                        "content-type": content_type,
+                                        "upsert": "true"
+                                    }
+                                )
+
+                                st.success(
+                                    f"✅ {name} certificate uploaded successfully!"
+                                )
+
+                            except Exception as e:
+
+                                st.error(
+                                    f"❌ Upload failed: {e}"
+                                )
 
                     elif student_answer == "No":
 
@@ -776,9 +820,11 @@ if login_type == "Student Login":
                 ):
 
                     st.session_state.student_logged_in = False
+
                     st.session_state.student_register = ""
 
                     st.rerun()
+
 
 # ==================================================
 # ADMIN LOGIN
@@ -840,6 +886,7 @@ else:
                 unsafe_allow_html=True
             )
 
+
     # ==================================================
     # ADMIN DASHBOARD
     # ==================================================
@@ -860,9 +907,12 @@ else:
         # ==================================================
 
         all_students = get_students()
+
         all_certificates = get_certificates()
 
-        total_students = len(all_students)
+        total_students = len(
+            all_students
+        )
 
         total_completed = sum(
             1
@@ -885,24 +935,28 @@ else:
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
+
             st.metric(
                 "👥 Total Students",
                 total_students
             )
 
         with col2:
+
             st.metric(
                 "✅ Completed Certificates",
                 total_completed
             )
 
         with col3:
+
             st.metric(
                 "⏳ Pending Certificates",
                 total_pending
             )
 
         with col4:
+
             st.metric(
                 "❓ Not Updated",
                 total_not_updated
@@ -971,7 +1025,7 @@ else:
                 ):
 
                     existing_student = get_student(
-                        new_register
+                        new_register.strip()
                     )
 
                     if existing_student:
@@ -982,23 +1036,28 @@ else:
 
                     else:
 
-                        (
-                            supabase
-                            .table("students")
-                            .insert(
+                        try:
+
+                            supabase.table(
+                                "students"
+                            ).insert(
                                 {
-                                    "register_no": new_register,
-                                    "name": new_name,
-                                    "department": new_department,
+                                    "register_no": new_register.strip(),
+                                    "name": new_name.strip(),
+                                    "department": new_department.strip(),
                                     "password": new_password
                                 }
-                            )
-                            .execute()
-                        )
+                            ).execute()
 
-                        st.success(
-                            "✅ Student added successfully!"
-                        )
+                            st.success(
+                                "✅ Student added successfully!"
+                            )
+
+                        except Exception as e:
+
+                            st.error(
+                                f"❌ Unable to add student: {e}"
+                            )
 
                 else:
 
@@ -1016,8 +1075,11 @@ else:
                 "🗑️ Remove Student"
             )
 
-            students_for_delete = sort_students_numeric(
-                get_students()
+            students_for_delete = sorted(
+                all_students,
+                key=lambda x: get_numeric_register_number(
+                    x["register_no"]
+                )
             )
 
             if students_for_delete:
@@ -1047,27 +1109,33 @@ else:
                     type="primary"
                 ):
 
-                    (
-                        supabase
-                        .table("certificates")
-                        .delete()
-                        .eq("register_no", selected_register)
-                        .execute()
-                    )
+                    try:
 
-                    (
-                        supabase
-                        .table("students")
-                        .delete()
-                        .eq("register_no", selected_register)
-                        .execute()
-                    )
+                        supabase.table(
+                            "certificates"
+                        ).delete().eq(
+                            "register_no",
+                            selected_register
+                        ).execute()
 
-                    st.success(
-                        "✅ Student and their certificates deleted successfully!"
-                    )
+                        supabase.table(
+                            "students"
+                        ).delete().eq(
+                            "register_no",
+                            selected_register
+                        ).execute()
 
-                    st.rerun()
+                        st.success(
+                            "✅ Student and their certificates deleted successfully!"
+                        )
+
+                        st.rerun()
+
+                    except Exception as e:
+
+                        st.error(
+                            f"❌ Unable to delete student: {e}"
+                        )
 
             else:
 
@@ -1126,27 +1194,22 @@ else:
                 ):
 
                     student_exists = get_student(
-                        certificate_register
+                        certificate_register.strip()
                     )
 
                     if student_exists:
 
-                        existing_certificates = (
-                            supabase
-                            .table("certificates")
-                            .select("id")
-                            .eq(
-                                "register_no",
-                                certificate_register
-                            )
-                            .eq(
-                                "certificate_name",
-                                certificate_name
-                            )
-                            .execute()
+                        existing_certificates = get_certificates(
+                            certificate_register.strip()
                         )
 
-                        if existing_certificates.data:
+                        duplicate = any(
+                            certificate["certificate_name"].lower()
+                            == certificate_name.strip().lower()
+                            for certificate in existing_certificates
+                        )
+
+                        if duplicate:
 
                             st.error(
                                 "❌ This certificate already exists for this student!"
@@ -1154,23 +1217,28 @@ else:
 
                         else:
 
-                            (
-                                supabase
-                                .table("certificates")
-                                .insert(
-                                    {
-                                        "register_no": certificate_register,
-                                        "certificate_name": certificate_name,
-                                        "status": certificate_status,
-                                        "deadline": certificate_deadline
-                                    }
-                                )
-                                .execute()
-                            )
+                            try:
 
-                            st.success(
-                                "✅ Certificate added successfully!"
-                            )
+                                supabase.table(
+                                    "certificates"
+                                ).insert(
+                                    {
+                                        "register_no": certificate_register.strip(),
+                                        "certificate_name": certificate_name.strip(),
+                                        "status": certificate_status,
+                                        "deadline": certificate_deadline.strip()
+                                    }
+                                ).execute()
+
+                                st.success(
+                                    "✅ Certificate added successfully!"
+                                )
+
+                            except Exception as e:
+
+                                st.error(
+                                    f"❌ Unable to add certificate: {e}"
+                                )
 
                     else:
 
@@ -1194,8 +1262,14 @@ else:
                 "🗑️ Remove Certificate"
             )
 
-            certificates_for_delete = sort_certificates_numeric(
-                get_certificates()
+            certificates_for_delete = sorted(
+                all_certificates,
+                key=lambda x: (
+                    get_numeric_register_number(
+                        x["register_no"]
+                    ),
+                    x["certificate_name"]
+                )
             )
 
             if certificates_for_delete:
@@ -1205,8 +1279,11 @@ else:
                 for certificate in certificates_for_delete:
 
                     certificate_id = certificate["id"]
+
                     register = certificate["register_no"]
+
                     name = certificate["certificate_name"]
+
                     status = certificate["status"]
 
                     display_name = (
@@ -1236,19 +1313,26 @@ else:
                     type="primary"
                 ):
 
-                    (
-                        supabase
-                        .table("certificates")
-                        .delete()
-                        .eq("id", selected_certificate_id)
-                        .execute()
-                    )
+                    try:
 
-                    st.success(
-                        "✅ Certificate deleted successfully!"
-                    )
+                        supabase.table(
+                            "certificates"
+                        ).delete().eq(
+                            "id",
+                            selected_certificate_id
+                        ).execute()
 
-                    st.rerun()
+                        st.success(
+                            "✅ Certificate deleted successfully!"
+                        )
+
+                        st.rerun()
+
+                    except Exception as e:
+
+                        st.error(
+                            f"❌ Unable to delete certificate: {e}"
+                        )
 
             else:
 
@@ -1266,8 +1350,11 @@ else:
                 "👥 Student List"
             )
 
-            students = sort_students_numeric(
-                get_students()
+            students = sorted(
+                all_students,
+                key=lambda x: get_numeric_register_number(
+                    x["register_no"]
+                )
             )
 
             if students:
@@ -1275,9 +1362,14 @@ else:
                 student_df = pd.DataFrame(
                     [
                         {
-                            "Register Number": student["register_no"],
-                            "Name": student["name"],
-                            "Department": student["department"]
+                            "Register Number":
+                                student["register_no"],
+
+                            "Name":
+                                student["name"],
+
+                            "Department":
+                                student["department"]
                         }
                         for student in students
                     ]
@@ -1296,7 +1388,7 @@ else:
                 )
 
         # ==================================================
-        # CERTIFICATE OVERVIEW - FOLDER STYLE
+        # CERTIFICATE OVERVIEW
         # ==================================================
 
         elif admin_menu == "Certificate Overview":
@@ -1309,16 +1401,21 @@ else:
                 "📁 Select a student to view all their certificates."
             )
 
-            all_students = sort_students_numeric(
-                get_students()
+            all_students_sorted = sorted(
+                all_students,
+                key=lambda x: get_numeric_register_number(
+                    x["register_no"]
+                )
             )
 
-            if all_students:
+            if all_students_sorted:
 
-                for student_data in all_students:
+                for student_data in all_students_sorted:
 
                     student_register = student_data["register_no"]
+
                     student_name = student_data["name"]
+
                     student_department = student_data["department"]
 
                     student_certificates = get_certificates(
@@ -1368,9 +1465,17 @@ else:
 
                             for certificate in student_certificates:
 
-                                certificate_name = certificate["certificate_name"]
-                                certificate_status = certificate["status"]
-                                certificate_deadline = certificate["deadline"]
+                                certificate_name = certificate[
+                                    "certificate_name"
+                                ]
+
+                                certificate_status = certificate[
+                                    "status"
+                                ]
+
+                                certificate_deadline = certificate[
+                                    "deadline"
+                                ]
 
                                 cert_col1, cert_col2, cert_col3 = st.columns(
                                     [2, 1, 1]
@@ -1467,46 +1572,48 @@ else:
                     and update_deadline
                 ):
 
-                    certificate_response = (
-                        supabase
-                        .table("certificates")
-                        .select("id")
-                        .eq(
-                            "register_no",
-                            update_register
-                        )
-                        .eq(
-                            "certificate_name",
-                            update_certificate
-                        )
-                        .execute()
+                    matching_certificates = get_certificates(
+                        update_register.strip()
                     )
 
-                    if certificate_response.data:
+                    matching_certificate = None
 
-                        (
-                            supabase
-                            .table("certificates")
-                            .update(
+                    for certificate in matching_certificates:
+
+                        if (
+                            certificate["certificate_name"].lower()
+                            == update_certificate.strip().lower()
+                        ):
+
+                            matching_certificate = certificate
+
+                            break
+
+                    if matching_certificate:
+
+                        try:
+
+                            supabase.table(
+                                "certificates"
+                            ).update(
                                 {
                                     "status": update_status,
-                                    "deadline": update_deadline
+                                    "deadline": update_deadline.strip()
                                 }
-                            )
-                            .eq(
-                                "register_no",
-                                update_register
-                            )
-                            .eq(
-                                "certificate_name",
-                                update_certificate
-                            )
-                            .execute()
-                        )
+                            ).eq(
+                                "id",
+                                matching_certificate["id"]
+                            ).execute()
 
-                        st.success(
-                            "✅ Certificate updated successfully!"
-                        )
+                            st.success(
+                                "✅ Certificate updated successfully!"
+                            )
+
+                        except Exception as e:
+
+                            st.error(
+                                f"❌ Unable to update certificate: {e}"
+                            )
 
                     else:
 
@@ -1530,22 +1637,23 @@ else:
                 "📂 Uploaded Certificates"
             )
 
-            upload_folder = "certificates"
+            try:
 
-            if os.path.exists(upload_folder):
+                storage_files = supabase.storage.from_(
+                    STORAGE_BUCKET
+                ).list()
 
-                uploaded_files = os.listdir(
-                    upload_folder
-                )
+                if storage_files:
 
-                if uploaded_files:
+                    for file_info in storage_files:
 
-                    for file_name in uploaded_files:
-
-                        file_path = os.path.join(
-                            upload_folder,
-                            file_name
+                        file_name = file_info.get(
+                            "name",
+                            ""
                         )
+
+                        if not file_name:
+                            continue
 
                         st.markdown(
                             f"📄 **{file_name}**"
@@ -1555,16 +1663,26 @@ else:
 
                         with col1:
 
-                            with open(
-                                file_path,
-                                "rb"
-                            ) as file:
+                            try:
+
+                                file_bytes = (
+                                    supabase
+                                    .storage
+                                    .from_(STORAGE_BUCKET)
+                                    .download(file_name)
+                                )
 
                                 st.download_button(
                                     "⬇️ Download",
-                                    file,
+                                    data=file_bytes,
                                     file_name=file_name,
                                     key="download_" + file_name
+                                )
+
+                            except Exception as e:
+
+                                st.error(
+                                    f"❌ Unable to download file: {e}"
                                 )
 
                         with col2:
@@ -1577,8 +1695,10 @@ else:
 
                                 try:
 
-                                    os.remove(
-                                        file_path
+                                    supabase.storage.from_(
+                                        STORAGE_BUCKET
+                                    ).remove(
+                                        [file_name]
                                     )
 
                                     st.success(
@@ -1601,10 +1721,10 @@ else:
                         "No certificates uploaded yet."
                     )
 
-            else:
+            except Exception as e:
 
-                st.info(
-                    "No certificates uploaded yet."
+                st.error(
+                    f"❌ Unable to access Supabase Storage: {e}"
                 )
 
         # ==================================================
@@ -1620,6 +1740,7 @@ else:
             st.session_state.admin_logged_in = False
 
             st.rerun()
+
 
 # ==================================================
 # FOOTER
