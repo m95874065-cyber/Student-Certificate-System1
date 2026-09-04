@@ -1964,6 +1964,7 @@ if (
                             .reset_index(
                                 drop=True
                             )
+                        )
 
                         not_updated_display.index = (
                             not_updated_display.index + 1
