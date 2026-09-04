@@ -1111,6 +1111,7 @@ if (
             "Add Certificate",
             "Remove Certificate",
             "Student List",
+            "🏆 Student Ranking",
             "Student Search & Filter",
             "Certificate Overview",
             "Certificate Analytics",
@@ -1508,6 +1509,335 @@ if (
 
 
     # ========================================================
+    # STUDENT RANKING / LEADERBOARD
+    # ========================================================
+
+    elif admin_menu == "🏆 Student Ranking":
+
+        st.subheader(
+            "🏆 Student Ranking"
+        )
+
+        st.write(
+            "Students are ranked based on completed certificates and progress."
+        )
+
+        if all_students:
+
+            ranking_rows = []
+
+            for student in all_students:
+
+                register_no = student[
+                    "register_no"
+                ]
+
+                student_certificates = [
+                    certificate
+                    for certificate in all_certificates
+                    if certificate[
+                        "register_no"
+                    ] == register_no
+                ]
+
+                total_certificates = len(
+                    student_certificates
+                )
+
+                completed_certificates = sum(
+                    1
+                    for certificate
+                    in student_certificates
+                    if certificate[
+                        "status"
+                    ] == "Completed"
+                )
+
+                if total_certificates > 0:
+
+                    progress = (
+                        completed_certificates
+                        / total_certificates
+                    ) * 100
+
+                else:
+
+                    progress = 0
+
+                ranking_rows.append(
+                    {
+                        "Register Number":
+                        register_no,
+
+                        "Student":
+                        student["name"],
+
+                        "Department":
+                        student["department"],
+
+                        "Completed":
+                        completed_certificates,
+
+                        "Total":
+                        total_certificates,
+
+                        "Progress":
+                        progress
+                    }
+                )
+
+            # ------------------------------------------------
+            # SORT BY COMPLETED THEN PROGRESS
+            # ------------------------------------------------
+
+            ranking_df = pd.DataFrame(
+                ranking_rows
+            )
+
+            ranking_df = ranking_df.sort_values(
+                by=[
+                    "Completed",
+                    "Progress"
+                ],
+                ascending=[
+                    False,
+                    False
+                ]
+            ).reset_index(
+                drop=True
+            )
+
+            # ------------------------------------------------
+            # RANK NUMBER
+            # ------------------------------------------------
+
+            ranking_df.insert(
+                0,
+                "Rank",
+                range(
+                    1,
+                    len(ranking_df) + 1
+                )
+            )
+
+            # ------------------------------------------------
+            # MEDAL DISPLAY
+            # ------------------------------------------------
+
+            def get_rank_display(rank):
+
+                if rank == 1:
+
+                    return "🥇 1"
+
+                elif rank == 2:
+
+                    return "🥈 2"
+
+                elif rank == 3:
+
+                    return "🥉 3"
+
+                else:
+
+                    return str(rank)
+
+            ranking_df["Rank"] = (
+                ranking_df["Rank"]
+                .apply(
+                    get_rank_display
+                )
+            )
+
+            # ------------------------------------------------
+            # COMPLETED / TOTAL
+            # ------------------------------------------------
+
+            ranking_df["Completed Progress"] = (
+                ranking_df[
+                    "Completed"
+                ].astype(str)
+                + "/"
+                + ranking_df[
+                    "Total"
+                ].astype(str)
+            )
+
+            # ------------------------------------------------
+            # PROGRESS %
+            # ------------------------------------------------
+
+            ranking_df["Progress %"] = (
+                ranking_df[
+                    "Progress"
+                ]
+                .round(1)
+                .astype(str)
+                + "%"
+            )
+
+            # ------------------------------------------------
+            # TOP 3
+            # ------------------------------------------------
+
+            st.markdown(
+                "### 🏆 Top Performers"
+            )
+
+            top_students = ranking_df.head(3)
+
+            top_col1, top_col2, top_col3 = (
+                st.columns(3)
+            )
+
+            if len(top_students) >= 1:
+
+                with top_col1:
+
+                    st.success(
+                        f"""
+                        🥇 **1st Place**
+
+                        ### {
+                            top_students.iloc[0]["Student"]
+                        }
+
+                        **{
+                            top_students.iloc[0]["Completed Progress"]
+                        }**
+
+                        **{
+                            top_students.iloc[0]["Progress %"]
+                        }**
+                        """
+                    )
+
+            if len(top_students) >= 2:
+
+                with top_col2:
+
+                    st.info(
+                        f"""
+                        🥈 **2nd Place**
+
+                        ### {
+                            top_students.iloc[1]["Student"]
+                        }
+
+                        **{
+                            top_students.iloc[1]["Completed Progress"]
+                        }**
+
+                        **{
+                            top_students.iloc[1]["Progress %"]
+                        }**
+                        """
+                    )
+
+            if len(top_students) >= 3:
+
+                with top_col3:
+
+                    st.warning(
+                        f"""
+                        🥉 **3rd Place**
+
+                        ### {
+                            top_students.iloc[2]["Student"]
+                        }
+
+                        **{
+                            top_students.iloc[2]["Completed Progress"]
+                        }**
+
+                        **{
+                            top_students.iloc[2]["Progress %"]
+                        }**
+                        """
+                    )
+
+            st.markdown("---")
+
+            # ------------------------------------------------
+            # COMPLETE LEADERBOARD
+            # ------------------------------------------------
+
+            st.markdown(
+                "### 📊 Complete Student Leaderboard"
+            )
+
+            final_ranking_df = ranking_df[
+                [
+                    "Rank",
+                    "Student",
+                    "Register Number",
+                    "Department",
+                    "Completed Progress",
+                    "Progress %"
+                ]
+            ]
+
+            st.dataframe(
+                final_ranking_df,
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # ------------------------------------------------
+            # PROGRESS CHART
+            # ------------------------------------------------
+
+            st.markdown(
+                "### 📈 Student Progress Comparison"
+            )
+
+            chart_ranking_df = ranking_df.copy()
+
+            chart_ranking_df[
+                "Student Display"
+            ] = (
+                chart_ranking_df[
+                    "Student"
+                ]
+                + " ("
+                + chart_ranking_df[
+                    "Register Number"
+                ]
+                + ")"
+            )
+
+            fig = px.bar(
+                chart_ranking_df,
+                x="Student Display",
+                y="Progress",
+                title="Student Certificate Progress",
+                text="Progress"
+            )
+
+            fig.update_layout(
+                xaxis_title="Student",
+                yaxis_title="Progress (%)",
+                height=500
+            )
+
+            fig.update_traces(
+                texttemplate="%{text:.1f}%",
+                textposition="outside"
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True
+            )
+
+        else:
+
+            st.info(
+                "📭 No students available for ranking."
+            )
+
+
+    # ========================================================
     # STUDENT SEARCH & FILTER
     # ========================================================
 
@@ -1523,18 +1853,10 @@ if (
 
         if all_students:
 
-            # ------------------------------------------------
-            # SEARCH
-            # ------------------------------------------------
-
             search_text = st.text_input(
                 "🔍 Search by Register Number or Student Name",
                 placeholder="Example: RCAS2026BAI173 or Pooja"
             )
-
-            # ------------------------------------------------
-            # DEPARTMENT OPTIONS
-            # ------------------------------------------------
 
             department_values = sorted(
                 list(
@@ -1550,10 +1872,6 @@ if (
                 "All Departments"
             ] + department_values
 
-            # ------------------------------------------------
-            # CERTIFICATE OPTIONS
-            # ------------------------------------------------
-
             certificate_values = sorted(
                 list(
                     set(
@@ -1568,10 +1886,6 @@ if (
                 "All Certificates"
             ] + certificate_values
 
-            # ------------------------------------------------
-            # STATUS OPTIONS
-            # ------------------------------------------------
-
             status_options = [
                 "All Statuses",
                 "Completed",
@@ -1579,7 +1893,9 @@ if (
                 "Not Updated"
             ]
 
-            filter_col1, filter_col2, filter_col3 = st.columns(3)
+            filter_col1, filter_col2, filter_col3 = (
+                st.columns(3)
+            )
 
             with filter_col1:
 
@@ -1602,10 +1918,6 @@ if (
                     status_options
                 )
 
-            # ------------------------------------------------
-            # FILTER STUDENTS
-            # ------------------------------------------------
-
             filtered_students = []
 
             for student in all_students:
@@ -1621,8 +1933,6 @@ if (
                 department = str(
                     student["department"]
                 )
-
-                # Search filter
 
                 if search_text:
 
@@ -1641,8 +1951,6 @@ if (
 
                         continue
 
-                # Department filter
-
                 if (
                     selected_department
                     != "All Departments"
@@ -1652,16 +1960,13 @@ if (
 
                     continue
 
-                # Student certificates
-
                 student_certificates = [
                     certificate
                     for certificate in all_certificates
-                    if certificate["register_no"]
-                    == register
+                    if certificate[
+                        "register_no"
+                    ] == register
                 ]
-
-                # Certificate filter
 
                 if (
                     selected_certificate
@@ -1685,8 +1990,6 @@ if (
                     student_certificates = (
                         matching_certificates
                     )
-
-                # Status filter
 
                 if (
                     selected_status
@@ -1732,10 +2035,6 @@ if (
 
                         continue
 
-                # ------------------------------------------------
-                # COUNTS
-                # ------------------------------------------------
-
                 total = len(
                     student_certificates
                 )
@@ -1744,24 +2043,27 @@ if (
                     1
                     for certificate
                     in student_certificates
-                    if certificate["status"]
-                    == "Completed"
+                    if certificate[
+                        "status"
+                    ] == "Completed"
                 )
 
                 pending = sum(
                     1
                     for certificate
                     in student_certificates
-                    if certificate["status"]
-                    == "Pending"
+                    if certificate[
+                        "status"
+                    ] == "Pending"
                 )
 
                 not_updated = sum(
                     1
                     for certificate
                     in student_certificates
-                    if certificate["status"]
-                    == "Status"
+                    if certificate[
+                        "status"
+                    ] == "Status"
                 )
 
                 filtered_students.append(
@@ -1789,14 +2091,11 @@ if (
                     }
                 )
 
-            # ------------------------------------------------
-            # RESULTS
-            # ------------------------------------------------
-
             st.markdown("---")
 
             st.markdown(
-                f"### 📋 Search Results: {len(filtered_students)} Student(s)"
+                f"### 📋 Search Results: "
+                f"{len(filtered_students)} Student(s)"
             )
 
             if filtered_students:
@@ -1810,10 +2109,6 @@ if (
                     use_container_width=True,
                     hide_index=True
                 )
-
-                # ------------------------------------------------
-                # RESULT SUMMARY
-                # ------------------------------------------------
 
                 result_col1, result_col2, result_col3, result_col4 = (
                     st.columns(4)
@@ -1867,10 +2162,6 @@ if (
                         result_not_updated
                     )
 
-                # ------------------------------------------------
-                # INDIVIDUAL STUDENT DETAILS
-                # ------------------------------------------------
-
                 st.markdown(
                     "### 👨‍🎓 Student Certificate Details"
                 )
@@ -1893,8 +2184,9 @@ if (
                         certificate
                         for certificate
                         in all_certificates
-                        if certificate["register_no"]
-                        == student_register
+                        if certificate[
+                            "register_no"
+                        ] == student_register
                     ]
 
                     with st.expander(
@@ -2372,10 +2664,6 @@ if (
                 fig,
                 use_container_width=True
             )
-
-            # =================================================
-            # STUDENT-WISE DETAILS
-            # =================================================
 
             st.markdown(
                 "### 👨‍🎓 Student Details by Certificate"
