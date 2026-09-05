@@ -1,10 +1,16 @@
 import streamlit as st
 from datetime import datetime
+from io import BytesIO
+
 import pandas as pd
 import plotly.express as px
 from supabase import create_client
+
 import hashlib
 import secrets
+
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 
 # ============================================================
@@ -105,6 +111,7 @@ def get_student(register_no):
     )
 
     if response.data:
+
         return response.data[0]
 
     return None
@@ -112,7 +119,9 @@ def get_student(register_no):
 
 def get_linkedin_profile_url(student):
 
-    return student.get("linkedin_profile_url") or ""
+    return student.get(
+        "linkedin_profile_url"
+    ) or ""
 
 
 def update_linkedin_profile(
@@ -123,10 +132,12 @@ def update_linkedin_profile(
     (
         supabase
         .table("students")
-        .update({
-            "linkedin_profile_url":
-            linkedin_profile_url
-        })
+        .update(
+            {
+                "linkedin_profile_url":
+                linkedin_profile_url
+            }
+        )
         .eq(
             "register_no",
             register_no
@@ -150,9 +161,12 @@ def update_linkedin_status(
     (
         supabase
         .table("certificates")
-        .update({
-            "linkedin_status": status
-        })
+        .update(
+            {
+                "linkedin_status":
+                status
+            }
+        )
         .eq(
             "id",
             certificate_id
@@ -362,6 +376,415 @@ def get_certificate_public_url(
 
 
 # ============================================================
+# EXPORT STUDENT EXCEL REPORT
+# ============================================================
+
+def create_student_excel_report(
+    student,
+    certificates
+):
+
+    rows = []
+
+    for certificate in certificates:
+
+        status = certificate["status"]
+
+        if status == "Status":
+
+            status = "Not Updated"
+
+        rows.append(
+            {
+                "Register Number":
+                    student["register_no"],
+
+                "Student Name":
+                    student["name"],
+
+                "Department":
+                    student["department"],
+
+                "Certificate":
+                    certificate["certificate_name"],
+
+                "Status":
+                    status,
+
+                "Deadline":
+                    certificate["deadline"]
+            }
+        )
+
+    if not rows:
+
+        rows.append(
+            {
+                "Register Number":
+                    student["register_no"],
+
+                "Student Name":
+                    student["name"],
+
+                "Department":
+                    student["department"],
+
+                "Certificate":
+                    "No certificates assigned",
+
+                "Status":
+                    "Not Updated",
+
+                "Deadline":
+                    "-"
+            }
+        )
+
+    df = pd.DataFrame(rows)
+
+    output = BytesIO()
+
+    with pd.ExcelWriter(
+        output,
+        engine="openpyxl"
+    ) as writer:
+
+        df.to_excel(
+            writer,
+            index=False,
+            sheet_name="Certificate Report"
+        )
+
+    output.seek(0)
+
+    return output.getvalue()
+
+
+# ============================================================
+# EXPORT STUDENT PDF REPORT
+# ============================================================
+
+def create_student_pdf_report(
+    student,
+    certificates
+):
+
+    output = BytesIO()
+
+    pdf = canvas.Canvas(
+        output,
+        pagesize=A4
+    )
+
+    width, height = A4
+
+    y = height - 50
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        18
+    )
+
+    pdf.drawCentredString(
+        width / 2,
+        y,
+        "Student Certificate Report"
+    )
+
+    y -= 40
+
+    pdf.setFont(
+        "Helvetica",
+        11
+    )
+
+    pdf.drawString(
+        50,
+        y,
+        f"Name: {student['name']}"
+    )
+
+    y -= 20
+
+    pdf.drawString(
+        50,
+        y,
+        f"Register Number: {student['register_no']}"
+    )
+
+    y -= 20
+
+    pdf.drawString(
+        50,
+        y,
+        f"Department: {student['department']}"
+    )
+
+    y -= 35
+
+    total = len(certificates)
+
+    completed = sum(
+        1
+        for c in certificates
+        if c["status"] == "Completed"
+    )
+
+    pending = sum(
+        1
+        for c in certificates
+        if c["status"] == "Pending"
+    )
+
+    not_updated = sum(
+        1
+        for c in certificates
+        if c["status"] == "Status"
+    )
+
+    pdf.drawString(
+        50,
+        y,
+        f"Total Certificates: {total}"
+    )
+
+    y -= 20
+
+    pdf.drawString(
+        50,
+        y,
+        f"Completed: {completed}"
+    )
+
+    y -= 20
+
+    pdf.drawString(
+        50,
+        y,
+        f"Pending: {pending}"
+    )
+
+    y -= 20
+
+    pdf.drawString(
+        50,
+        y,
+        f"Not Updated: {not_updated}"
+    )
+
+    y -= 35
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        11
+    )
+
+    pdf.drawString(
+        50,
+        y,
+        "Certificate Details"
+    )
+
+    y -= 25
+
+    pdf.setFont(
+        "Helvetica",
+        10
+    )
+
+    if certificates:
+
+        for certificate in certificates:
+
+            status = certificate["status"]
+
+            if status == "Status":
+
+                status = "Not Updated"
+
+            certificate_name = (
+                certificate["certificate_name"]
+            )
+
+            deadline = certificate["deadline"]
+
+            text = (
+                f"{certificate_name} | "
+                f"{status} | "
+                f"Deadline: {deadline}"
+            )
+
+            pdf.drawString(
+                50,
+                y,
+                text[:105]
+            )
+
+            y -= 20
+
+            if y < 50:
+
+                pdf.showPage()
+
+                y = height - 50
+
+                pdf.setFont(
+                    "Helvetica",
+                    10
+                )
+
+    else:
+
+        pdf.drawString(
+            50,
+            y,
+            "No certificates assigned."
+        )
+
+    pdf.save()
+
+    output.seek(0)
+
+    return output.getvalue()
+
+
+# ============================================================
+# DIGITAL ACHIEVEMENT CARD
+# ============================================================
+
+def create_achievement_card(
+    student,
+    total_certificates,
+    completed_certificates,
+    progress,
+    badge_name
+):
+
+    output = BytesIO()
+
+    card_width = 500
+    card_height = 320
+
+    pdf = canvas.Canvas(
+        output,
+        pagesize=(
+            card_width,
+            card_height
+        )
+    )
+
+    # Border
+
+    pdf.setLineWidth(2)
+
+    pdf.rect(
+        15,
+        15,
+        card_width - 30,
+        card_height - 30
+    )
+
+    # Title
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        20
+    )
+
+    pdf.drawCentredString(
+        card_width / 2,
+        270,
+        "STUDENT ACHIEVEMENT CARD"
+    )
+
+    pdf.setFont(
+        "Helvetica",
+        12
+    )
+
+    pdf.drawCentredString(
+        card_width / 2,
+        245,
+        "Certificate Achievement"
+    )
+
+    # Student Details
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        12
+    )
+
+    pdf.drawString(
+        45,
+        195,
+        f"Name: {student['name']}"
+    )
+
+    pdf.drawString(
+        45,
+        170,
+        f"Register No: {student['register_no']}"
+    )
+
+    pdf.drawString(
+        45,
+        145,
+        f"Department: {student['department']}"
+    )
+
+    pdf.drawString(
+        45,
+        110,
+        (
+            f"Certificates Completed: "
+            f"{completed_certificates} / "
+            f"{total_certificates}"
+        )
+    )
+
+    pdf.drawString(
+        45,
+        85,
+        f"Progress: {progress * 100:.0f}%"
+    )
+
+    # Remove emoji from badge name
+    # because default PDF font may not support emoji.
+
+    safe_badge_name = (
+        badge_name
+        .encode(
+            "ascii",
+            "ignore"
+        )
+        .decode()
+        .strip()
+    )
+
+    if not safe_badge_name:
+
+        safe_badge_name = "Achievement Earned"
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        14
+    )
+
+    pdf.drawCentredString(
+        card_width / 2,
+        50,
+        safe_badge_name
+    )
+
+    pdf.save()
+
+    output.seek(0)
+
+    return output.getvalue()
+
+
+# ============================================================
 # CUSTOM CSS
 # ============================================================
 
@@ -457,12 +880,15 @@ st.markdown(
 # ============================================================
 
 if "logged_in" not in st.session_state:
+
     st.session_state.logged_in = False
 
 if "user_type" not in st.session_state:
+
     st.session_state.user_type = None
 
 if "register_no" not in st.session_state:
+
     st.session_state.register_no = None
 
 
@@ -495,7 +921,9 @@ with st.sidebar:
 
     else:
 
-        login_type = st.session_state.user_type
+        login_type = (
+            st.session_state.user_type
+        )
 
         if login_type == "Student":
 
@@ -613,6 +1041,7 @@ if not st.session_state.logged_in:
 
                         st.session_state.logged_in = True
                         st.session_state.user_type = "Student"
+
                         st.session_state.register_no = (
                             register_no.strip()
                         )
@@ -643,6 +1072,7 @@ if not st.session_state.logged_in:
 
                         st.session_state.logged_in = True
                         st.session_state.user_type = "Student"
+
                         st.session_state.register_no = (
                             register_no.strip()
                         )
@@ -724,7 +1154,9 @@ if (
     and st.session_state.user_type == "Student"
 ):
 
-    register_no = st.session_state.register_no
+    register_no = (
+        st.session_state.register_no
+    )
 
     student = get_student(
         register_no
@@ -893,6 +1325,44 @@ if (
                 f"{badge_message}"
             )
 
+        # ====================================================
+        # DIGITAL ACHIEVEMENT CARD
+        # ====================================================
+
+        st.markdown(
+            "### 🪪 Digital Achievement Card"
+        )
+
+        st.caption(
+            "Download your certificate achievement card "
+            "as a PDF."
+        )
+
+        achievement_card = (
+            create_achievement_card(
+                student,
+                total_certificates,
+                completed_certificates,
+                progress,
+                badge_name
+            )
+        )
+
+        st.download_button(
+            "📥 Download Achievement Card",
+            data=achievement_card,
+            file_name=(
+                f"{student['register_no']}_"
+                f"Achievement_Card.pdf"
+            ),
+            mime="application/pdf",
+            use_container_width=True
+        )
+
+        # ====================================================
+        # PIE CHART
+        # ====================================================
+
         if total_certificates > 0:
 
             chart_data = pd.DataFrame(
@@ -949,7 +1419,9 @@ if (
         linkedin_profile_url = st.text_input(
             "LinkedIn Profile URL",
             value=current_linkedin_profile,
-            placeholder="https://www.linkedin.com/in/your-profile",
+            placeholder=(
+                "https://www.linkedin.com/in/your-profile"
+            ),
             key="linkedin_profile_url_input"
         )
 
@@ -1080,7 +1552,10 @@ if (
 
                             if st.button(
                                 "Mark Posted",
-                                key=f"linkedin_posted_{certificate['id']}"
+                                key=(
+                                    f"linkedin_posted_"
+                                    f"{certificate['id']}"
+                                )
                             ):
 
                                 try:
@@ -1102,7 +1577,10 @@ if (
 
                             if st.button(
                                 "Undo",
-                                key=f"linkedin_undo_{certificate['id']}"
+                                key=(
+                                    f"linkedin_undo_"
+                                    f"{certificate['id']}"
+                                )
                             ):
 
                                 try:
@@ -1301,7 +1779,10 @@ if (
 
                         if st.button(
                             "📤 Upload Certificate",
-                            key=f"upload_btn_{certificate['id']}"
+                            key=(
+                                f"upload_btn_"
+                                f"{certificate['id']}"
+                            )
                         ):
 
                             file_path = (
@@ -1334,7 +1815,8 @@ if (
                                             "content-type":
                                             content_type,
 
-                                            "upsert": "true"
+                                            "upsert":
+                                            "true"
                                         }
                                     )
                                 )
@@ -1415,7 +1897,6 @@ if (
             == student_register
         ]
 
-        # No certificates assigned
         if not student_certificates:
 
             total_not_updated += 1
@@ -1427,7 +1908,6 @@ if (
             for certificate in student_certificates
         ]
 
-        # Student completed all assigned certificates
         if all(
             status == "Completed"
             for status in statuses
@@ -1435,7 +1915,6 @@ if (
 
             total_completed += 1
 
-        # Student has at least one pending certificate
         elif any(
             status == "Pending"
             for status in statuses
@@ -1443,11 +1922,9 @@ if (
 
             total_pending += 1
 
-        # Student has only Status / Not Updated
         else:
 
             total_not_updated += 1
-
 
     col1, col2, col3, col4 = st.columns(4)
 
@@ -1498,7 +1975,8 @@ if (
             "Certificate Analytics",
             "Update Certificate",
             "LinkedIn Updates",
-            "Uploaded Certificates"
+            "Uploaded Certificates",
+            "Student Reports"
         ]
     )
 
@@ -2051,7 +2529,9 @@ if (
 
             search_text = st.text_input(
                 "🔍 Search by Register Number or Student Name",
-                placeholder="Example: RCAS2026BAI173 or Pooja"
+                placeholder=(
+                    "Example: RCAS2026BAI173 or Pooja"
+                )
             )
 
             department_values = sorted(
@@ -2071,9 +2551,15 @@ if (
             certificate_values = sorted(
                 list(
                     set(
-                        str(certificate["certificate_name"])
+                        str(
+                            certificate[
+                                "certificate_name"
+                            ]
+                        )
                         for certificate in all_certificates
-                        if certificate.get("certificate_name")
+                        if certificate.get(
+                            "certificate_name"
+                        )
                     )
                 )
             )
@@ -2229,25 +2715,22 @@ if (
                 completed = sum(
                     1
                     for certificate in student_certificates
-                    if certificate[
-                        "status"
-                    ] == "Completed"
+                    if certificate["status"]
+                    == "Completed"
                 )
 
                 pending = sum(
                     1
                     for certificate in student_certificates
-                    if certificate[
-                        "status"
-                    ] == "Pending"
+                    if certificate["status"]
+                    == "Pending"
                 )
 
                 not_updated = sum(
                     1
                     for certificate in student_certificates
-                    if certificate[
-                        "status"
-                    ] == "Status"
+                    if certificate["status"]
+                    == "Status"
                 )
 
                 filtered_students.append(
@@ -3329,7 +3812,8 @@ if (
         }
 
         completed_certificates = [
-            c for c in all_certificates
+            c
+            for c in all_certificates
             if c["status"] == "Completed"
         ]
 
@@ -3340,13 +3824,15 @@ if (
         verified_count = sum(
             1
             for c in completed_certificates
-            if get_linkedin_status(c) == "Verified"
+            if get_linkedin_status(c)
+            == "Verified"
         )
 
         submitted_count = sum(
             1
             for c in completed_certificates
-            if get_linkedin_status(c) == "Submitted"
+            if get_linkedin_status(c)
+            == "Submitted"
         )
 
         not_updated_count = (
@@ -3428,6 +3914,7 @@ if (
             ]
 
             if not student_completed:
+
                 continue
 
             updated_for_student = sum(
@@ -3502,6 +3989,7 @@ if (
                 ]
 
                 if not student_completed:
+
                     continue
 
                 student_updated = sum(
@@ -3595,10 +4083,6 @@ if (
                                             "Verified"
                                         )
 
-                                        st.success(
-                                            "LinkedIn update verified."
-                                        )
-
                                         st.rerun()
 
                                     except Exception as e:
@@ -3625,10 +4109,6 @@ if (
                                         update_linkedin_status(
                                             certificate["id"],
                                             "Not Updated"
-                                        )
-
-                                        st.success(
-                                            "LinkedIn status updated."
                                         )
 
                                         st.rerun()
@@ -3677,6 +4157,7 @@ if (
                     )
 
                     if not file_name:
+
                         continue
 
                     st.markdown(
@@ -3765,6 +4246,234 @@ if (
 
             st.error(
                 f"❌ Unable to access storage: {e}"
+            )
+
+
+    # ========================================================
+    # STUDENT REPORTS
+    # ========================================================
+
+    elif admin_menu == "Student Reports":
+
+        st.subheader(
+            "📥 Student Reports"
+        )
+
+        st.caption(
+            "Generate and download an individual student's "
+            "certificate report."
+        )
+
+        if all_students:
+
+            student_options = [
+                f'{s["register_no"]} - {s["name"]}'
+                for s in all_students
+            ]
+
+            selected_student = st.selectbox(
+                "Select Student",
+                student_options
+            )
+
+            selected_register = (
+                selected_student
+                .split(" - ")[0]
+            )
+
+            selected_student_data = get_student(
+                selected_register
+            )
+
+            selected_certificates = get_certificates(
+                selected_register
+            )
+
+            if selected_student_data:
+
+                completed = sum(
+                    1
+                    for c in selected_certificates
+                    if c["status"] == "Completed"
+                )
+
+                pending = sum(
+                    1
+                    for c in selected_certificates
+                    if c["status"] == "Pending"
+                )
+
+                not_updated = sum(
+                    1
+                    for c in selected_certificates
+                    if c["status"] == "Status"
+                )
+
+                total = len(
+                    selected_certificates
+                )
+
+                st.markdown(
+                    "### 👨‍🎓 Student Information"
+                )
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+
+                    st.write(
+                        f"**👤 Name:** "
+                        f"{selected_student_data['name']}"
+                    )
+
+                with col2:
+
+                    st.write(
+                        f"**🆔 Register Number:** "
+                        f"{selected_student_data['register_no']}"
+                    )
+
+                with col3:
+
+                    st.write(
+                        f"**🏫 Department:** "
+                        f"{selected_student_data['department']}"
+                    )
+
+                st.markdown("---")
+
+                col1, col2, col3, col4 = st.columns(4)
+
+                with col1:
+
+                    st.metric(
+                        "📜 Total",
+                        total
+                    )
+
+                with col2:
+
+                    st.metric(
+                        "✅ Completed",
+                        completed
+                    )
+
+                with col3:
+
+                    st.metric(
+                        "⏳ Pending",
+                        pending
+                    )
+
+                with col4:
+
+                    st.metric(
+                        "❓ Not Updated",
+                        not_updated
+                    )
+
+                st.markdown(
+                    "### 📋 Certificate Report"
+                )
+
+                report_rows = []
+
+                for certificate in selected_certificates:
+
+                    status = certificate["status"]
+
+                    if status == "Status":
+
+                        status = "Not Updated"
+
+                    report_rows.append(
+                        {
+                            "Certificate":
+                                certificate[
+                                    "certificate_name"
+                                ],
+
+                            "Status":
+                                status,
+
+                            "Deadline":
+                                certificate[
+                                    "deadline"
+                                ]
+                        }
+                    )
+
+                if report_rows:
+
+                    report_df = pd.DataFrame(
+                        report_rows
+                    )
+
+                    st.dataframe(
+                        report_df,
+                        use_container_width=True,
+                        hide_index=True
+                    )
+
+                else:
+
+                    st.info(
+                        "📭 No certificates assigned."
+                    )
+
+                st.markdown(
+                    "### 📥 Download Report"
+                )
+
+                excel_report = (
+                    create_student_excel_report(
+                        selected_student_data,
+                        selected_certificates
+                    )
+                )
+
+                pdf_report = (
+                    create_student_pdf_report(
+                        selected_student_data,
+                        selected_certificates
+                    )
+                )
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+
+                    st.download_button(
+                        "📊 Download Excel Report",
+                        data=excel_report,
+                        file_name=(
+                            f"{selected_register}_"
+                            f"Certificate_Report.xlsx"
+                        ),
+                        mime=(
+                            "application/vnd.openxmlformats-"
+                            "officedocument.spreadsheetml.sheet"
+                        ),
+                        use_container_width=True
+                    )
+
+                with col2:
+
+                    st.download_button(
+                        "📄 Download PDF Report",
+                        data=pdf_report,
+                        file_name=(
+                            f"{selected_register}_"
+                            f"Certificate_Report.pdf"
+                        ),
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+
+        else:
+
+            st.info(
+                "📭 No students available."
             )
 
 
