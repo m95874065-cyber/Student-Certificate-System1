@@ -1334,9 +1334,6 @@ if (
                                             "content-type":
                                             content_type,
 
-                                            # FIX:
-                                            # Supabase Python SDK
-                                            # expects string value here
                                             "upsert": "true"
                                         }
                                     )
@@ -1393,27 +1390,64 @@ if (
         )
     )
 
+    # ========================================================
+    # ADMIN STUDENT-WISE STATISTICS
+    # ========================================================
+
     total_students = len(
         all_students
     )
 
-    total_completed = sum(
-        1
-        for c in all_certificates
-        if c["status"] == "Completed"
-    )
+    total_completed = 0
+    total_pending = 0
+    total_not_updated = 0
 
-    total_pending = sum(
-        1
-        for c in all_certificates
-        if c["status"] == "Pending"
-    )
+    for student in all_students:
 
-    total_not_updated = sum(
-        1
-        for c in all_certificates
-        if c["status"] == "Status"
-    )
+        student_register = (
+            student["register_no"]
+        )
+
+        student_certificates = [
+            certificate
+            for certificate in all_certificates
+            if certificate["register_no"]
+            == student_register
+        ]
+
+        # No certificates assigned
+        if not student_certificates:
+
+            total_not_updated += 1
+
+            continue
+
+        statuses = [
+            certificate["status"]
+            for certificate in student_certificates
+        ]
+
+        # Student completed all assigned certificates
+        if all(
+            status == "Completed"
+            for status in statuses
+        ):
+
+            total_completed += 1
+
+        # Student has at least one pending certificate
+        elif any(
+            status == "Pending"
+            for status in statuses
+        ):
+
+            total_pending += 1
+
+        # Student has only Status / Not Updated
+        else:
+
+            total_not_updated += 1
+
 
     col1, col2, col3, col4 = st.columns(4)
 
