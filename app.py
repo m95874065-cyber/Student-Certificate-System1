@@ -111,6 +111,52 @@ def get_student(register_no):
     return None
 
 
+def get_linkedin_profile_url(student):
+
+    return student.get("linkedin_profile_url") or ""
+
+
+def update_linkedin_profile(register_no, linkedin_profile_url):
+
+    (
+        supabase
+        .table("students")
+        .update({
+            "linkedin_profile_url": linkedin_profile_url
+        })
+        .eq(
+            "register_no",
+            register_no
+        )
+        .execute()
+    )
+
+
+def get_linkedin_status(certificate):
+
+    return certificate.get("linkedin_status") or "Not Updated"
+
+
+def update_linkedin_status(certificate_id, status):
+
+    (
+        supabase
+        .table("certificates")
+        .update({
+            "linkedin_status": status
+        })
+        .eq(
+            "id",
+            certificate_id
+        )
+        .execute()
+    )
+
+
+# ============================================================
+# CERTIFICATE DATABASE FUNCTIONS
+# ============================================================
+
 def get_certificates(register_no=None):
 
     query = (
@@ -129,50 +175,6 @@ def get_certificates(register_no=None):
     response = query.execute()
 
     return response.data or []
-
-
-# ============================================================
-# LINKEDIN UPDATE TRACKING
-# ============================================================
-
-def get_linkedin_status(certificate):
-    return certificate.get("linkedin_status") or "Not Updated"
-
-
-def get_linkedin_url(certificate):
-    return certificate.get("linkedin_url") or ""
-
-
-def update_linkedin_submission(certificate_id, linkedin_url):
-    (
-        supabase
-        .table("certificates")
-        .update(
-            {
-                "linkedin_url": linkedin_url,
-                "linkedin_status": "Submitted"
-            }
-        )
-        .eq("id", certificate_id)
-        .execute()
-    )
-
-
-def update_linkedin_verification(certificate_id, status):
-    update_data = {
-        "linkedin_status": status
-    }
-
-    if status == "Not Updated":
-        update_data["linkedin_url"] = None
-
-    (
-        supabase
-        .table("certificates")
-        .update(update_data)
-        .eq("id", certificate_id)
-        .execute()
-    )
 
 
 # ============================================================
@@ -844,6 +846,141 @@ if (
                     use_container_width=True
                 )
 
+        # ====================================================
+        # LINKEDIN PROFILE
+        # ====================================================
+
+        st.markdown(
+            "### 🔗 LinkedIn Profile"
+        )
+
+        current_linkedin_profile = get_linkedin_profile_url(
+            student
+        )
+
+        linkedin_profile_url = st.text_input(
+            "LinkedIn Profile URL",
+            value=current_linkedin_profile,
+            placeholder="https://www.linkedin.com/in/your-profile",
+            key="linkedin_profile_url_input"
+        )
+
+        if st.button(
+            "💾 Save LinkedIn Profile",
+            use_container_width=True
+        ):
+            profile_url = linkedin_profile_url.strip()
+
+            if profile_url and not (
+                profile_url.startswith("https://www.linkedin.com/in/")
+                or profile_url.startswith("https://linkedin.com/in/")
+            ):
+                st.error(
+                    "❌ Please enter a valid LinkedIn profile URL."
+                )
+            else:
+                try:
+                    update_linkedin_profile(
+                        register_no,
+                        profile_url or None
+                    )
+                    st.success(
+                        "✅ LinkedIn profile saved successfully."
+                    )
+                    st.rerun()
+                except Exception as e:
+                    st.error(
+                        f"❌ Unable to save LinkedIn profile: {e}"
+                    )
+
+        if current_linkedin_profile:
+            st.markdown(
+                f"🔗 [Open My LinkedIn Profile]({current_linkedin_profile})"
+            )
+
+        # ====================================================
+        # LINKEDIN CERTIFICATE UPDATES
+        # ====================================================
+
+        completed_for_linkedin = [
+            c for c in certificates
+            if c["status"] == "Completed"
+        ]
+
+        st.markdown(
+            "### 📢 LinkedIn Certificate Updates"
+        )
+
+        if current_linkedin_profile:
+            st.caption(
+                "Your LinkedIn profile is saved above. Mark each completed certificate that you have posted on LinkedIn."
+            )
+
+            if completed_for_linkedin:
+                for certificate in completed_for_linkedin:
+                    linkedin_status = get_linkedin_status(
+                        certificate
+                    )
+
+                    col1, col2 = st.columns([4, 1])
+
+                    with col1:
+                        if linkedin_status == "Verified":
+                            st.success(
+                                f"📜 {certificate['certificate_name']} — ✅ Verified"
+                            )
+                        elif linkedin_status == "Submitted":
+                            st.info(
+                                f"📜 {certificate['certificate_name']} — 🔗 Posted / Submitted"
+                            )
+                        else:
+                            st.warning(
+                                f"📜 {certificate['certificate_name']} — ❌ Not Updated"
+                            )
+
+                    with col2:
+                        if linkedin_status in [
+                            "Not Updated",
+                            None
+                        ]:
+                            if st.button(
+                                "Mark Posted",
+                                key=f"linkedin_posted_{certificate['id']}"
+                            ):
+                                try:
+                                    update_linkedin_status(
+                                        certificate["id"],
+                                        "Submitted"
+                                    )
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(
+                                        f"❌ Error: {e}"
+                                    )
+                        else:
+                            if st.button(
+                                "Undo",
+                                key=f"linkedin_undo_{certificate['id']}"
+                            ):
+                                try:
+                                    update_linkedin_status(
+                                        certificate["id"],
+                                        "Not Updated"
+                                    )
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(
+                                        f"❌ Error: {e}"
+                                    )
+            else:
+                st.info(
+                    "📭 Complete a certificate first to track its LinkedIn update."
+                )
+        else:
+            st.info(
+                "🔗 Add your LinkedIn profile URL above to start LinkedIn tracking."
+            )
+
         st.markdown(
             "### 📋 Certificate Details"
         )
@@ -1048,92 +1185,6 @@ if (
                                     f"❌ Upload failed: {e}"
                                 )
 
-                    # =================================================
-                    # LINKEDIN UPDATE TRACKING
-                    # =================================================
-
-                    st.markdown("**🔗 LinkedIn Update**")
-
-                    linkedin_status = get_linkedin_status(certificate)
-                    linkedin_url = get_linkedin_url(certificate)
-
-                    if linkedin_status == "Verified":
-                        st.success("🟢 LinkedIn post verified by Admin.")
-
-                        if linkedin_url:
-                            st.markdown(
-                                f"[🔗 Open LinkedIn Post]({linkedin_url})"
-                            )
-
-                    elif linkedin_status == "Submitted":
-                        st.warning(
-                            "🟡 LinkedIn post submitted. "
-                            "Waiting for Admin verification."
-                        )
-
-                        if linkedin_url:
-                            st.markdown(
-                                f"[🔗 Open Submitted Post]({linkedin_url})"
-                            )
-
-                        st.info(
-                            "If you want to replace the submitted post, "
-                            "enter the new LinkedIn post URL below."
-                        )
-
-                    else:
-                        st.info(
-                            "🔴 LinkedIn post not updated yet. "
-                            "Post your certificate on LinkedIn and submit the post URL."
-                        )
-
-                    new_linkedin_url = st.text_input(
-                        "LinkedIn Post URL",
-                        value=linkedin_url,
-                        placeholder="https://www.linkedin.com/posts/...",
-                        key=f"linkedin_url_{certificate['id']}"
-                    )
-
-                    if st.button(
-                        "🔗 Submit LinkedIn Update",
-                        key=f"linkedin_submit_{certificate['id']}"
-                    ):
-
-                        clean_url = new_linkedin_url.strip()
-
-                        if not clean_url:
-                            st.warning(
-                                "⚠️ Please enter your LinkedIn post URL."
-                            )
-
-                        elif not (
-                            clean_url.startswith("https://www.linkedin.com/")
-                            or clean_url.startswith("https://linkedin.com/")
-                        ):
-                            st.warning(
-                                "⚠️ Please enter a valid LinkedIn URL."
-                            )
-
-                        else:
-                            try:
-                                update_linkedin_submission(
-                                    certificate["id"],
-                                    clean_url
-                                )
-
-                                st.success(
-                                    "✅ LinkedIn post submitted successfully. "
-                                    "Admin verification is pending."
-                                )
-
-                                st.rerun()
-
-                            except Exception as e:
-
-                                st.error(
-                                    f"❌ LinkedIn update failed: {e}"
-                                )
-
         else:
 
             st.info(
@@ -1244,8 +1295,8 @@ if (
             "Student Search & Filter",
             "Certificate Overview",
             "Certificate Analytics",
-            "LinkedIn Updates",
             "Update Certificate",
+            "LinkedIn Updates",
             "Uploaded Certificates"
         ]
     )
@@ -2832,321 +2883,6 @@ if (
 
 
     # ========================================================
-    # LINKEDIN UPDATES
-    # ========================================================
-
-    elif admin_menu == "LinkedIn Updates":
-
-        st.subheader(
-            "🔗 LinkedIn Update Tracking"
-        )
-
-        st.write(
-            "Track how many completed certificates students "
-            "have posted on LinkedIn."
-        )
-
-        if all_certificates:
-
-            linkedin_rows = []
-
-            for certificate in all_certificates:
-
-                student = next(
-                    (
-                        s
-                        for s in all_students
-                        if s["register_no"]
-                        == certificate["register_no"]
-                    ),
-                    None
-                )
-
-                student_name = (
-                    student["name"]
-                    if student
-                    else "Unknown Student"
-                )
-
-                certificate_status = certificate["status"]
-
-                if certificate_status == "Completed":
-
-                    linkedin_status = get_linkedin_status(
-                        certificate
-                    )
-
-                    if linkedin_status not in [
-                        "Submitted",
-                        "Verified"
-                    ]:
-                        linkedin_status = "Not Updated"
-
-                    linkedin_rows.append(
-                        {
-                            "Register Number":
-                            certificate["register_no"],
-
-                            "Student Name":
-                            student_name,
-
-                            "Certificate":
-                            certificate["certificate_name"],
-
-                            "LinkedIn Status":
-                            linkedin_status,
-
-                            "LinkedIn Post":
-                            get_linkedin_url(certificate)
-                        }
-                    )
-
-            if linkedin_rows:
-
-                linkedin_df = pd.DataFrame(
-                    linkedin_rows
-                )
-
-                verified_count = int(
-                    (
-                        linkedin_df["LinkedIn Status"]
-                        == "Verified"
-                    ).sum()
-                )
-
-                submitted_count = int(
-                    (
-                        linkedin_df["LinkedIn Status"]
-                        == "Submitted"
-                    ).sum()
-                )
-
-                not_updated_count = int(
-                    (
-                        linkedin_df["LinkedIn Status"]
-                        == "Not Updated"
-                    ).sum()
-                )
-
-                linkedin_total = len(
-                    linkedin_df
-                )
-
-                linkedin_updated_count = (
-                    verified_count
-                    + submitted_count
-                )
-
-                col1, col2, col3, col4 = st.columns(4)
-
-                with col1:
-
-                    st.metric(
-                        "📜 Completed Certificates",
-                        linkedin_total
-                    )
-
-                with col2:
-
-                    st.metric(
-                        "🟢 Verified",
-                        verified_count
-                    )
-
-                with col3:
-
-                    st.metric(
-                        "🟡 Submitted",
-                        submitted_count
-                    )
-
-                with col4:
-
-                    st.metric(
-                        "🔴 Not Updated",
-                        not_updated_count
-                    )
-
-                st.progress(
-                    linkedin_updated_count
-                    / linkedin_total
-                    if linkedin_total > 0
-                    else 0
-                )
-
-                st.write(
-                    f"**LinkedIn Updated: "
-                    f"{linkedin_updated_count} / "
-                    f"{linkedin_total} "
-                    f"({linkedin_updated_count / linkedin_total * 100:.0f}%)**"
-                    if linkedin_total > 0
-                    else "**LinkedIn Updated: 0 / 0**"
-                )
-
-                st.markdown(
-                    "### 📋 Student-wise LinkedIn Updates"
-                )
-
-                display_df = linkedin_df[
-                    [
-                        "Register Number",
-                        "Student Name",
-                        "Certificate",
-                        "LinkedIn Status"
-                    ]
-                ]
-
-                st.dataframe(
-                    display_df,
-                    use_container_width=True,
-                    hide_index=True
-                )
-
-                st.markdown(
-                    "### 👨‍🎓 Verify LinkedIn Posts"
-                )
-
-                for row in linkedin_rows:
-
-                    register = row["Register Number"]
-                    certificate_name = row["Certificate"]
-
-                    matching_certificate = next(
-                        (
-                            c
-                            for c in all_certificates
-                            if c["register_no"] == register
-                            and c["certificate_name"]
-                            == certificate_name
-                            and c["status"] == "Completed"
-                        ),
-                        None
-                    )
-
-                    if not matching_certificate:
-                        continue
-
-                    current_linkedin_status = (
-                        get_linkedin_status(
-                            matching_certificate
-                        )
-                    )
-
-                    current_linkedin_url = (
-                        get_linkedin_url(
-                            matching_certificate
-                        )
-                    )
-
-                    with st.expander(
-                        f"📜 {certificate_name} | "
-                        f"{register} | "
-                        f"{row['Student Name']} | "
-                        f"{current_linkedin_status}"
-                    ):
-
-                        if current_linkedin_url:
-
-                            st.markdown(
-                                f"[🔗 Open LinkedIn Post]"
-                                f"({current_linkedin_url})"
-                            )
-
-                        else:
-
-                            st.info(
-                                "No LinkedIn post URL submitted."
-                            )
-
-                        if current_linkedin_status == "Verified":
-
-                            st.success(
-                                "🟢 This LinkedIn post is verified."
-                            )
-
-                        elif current_linkedin_status == "Submitted":
-
-                            st.warning(
-                                "🟡 Submitted by student. "
-                                "Please check the LinkedIn post."
-                            )
-
-                        else:
-
-                            st.error(
-                                "🔴 Student has not submitted "
-                                "a LinkedIn post."
-                            )
-
-                        verify_col1, verify_col2 = st.columns(2)
-
-                        with verify_col1:
-
-                            if st.button(
-                                "✅ Verify",
-                                key=f"verify_linkedin_{matching_certificate['id']}"
-                            ):
-
-                                try:
-
-                                    update_linkedin_verification(
-                                        matching_certificate["id"],
-                                        "Verified"
-                                    )
-
-                                    st.success(
-                                        "✅ LinkedIn post verified."
-                                    )
-
-                                    st.rerun()
-
-                                except Exception as e:
-
-                                    st.error(
-                                        f"❌ Verification failed: {e}"
-                                    )
-
-                        with verify_col2:
-
-                            if st.button(
-                                "🔴 Mark Not Updated",
-                                key=f"not_updated_linkedin_{matching_certificate['id']}"
-                            ):
-
-                                try:
-
-                                    update_linkedin_verification(
-                                        matching_certificate["id"],
-                                        "Not Updated"
-                                    )
-
-                                    st.success(
-                                        "✅ LinkedIn status updated."
-                                    )
-
-                                    st.rerun()
-
-                                except Exception as e:
-
-                                    st.error(
-                                        f"❌ Update failed: {e}"
-                                    )
-
-            else:
-
-                st.info(
-                    "📭 No completed certificates available "
-                    "for LinkedIn tracking."
-                )
-
-        else:
-
-            st.info(
-                "📭 No certificates available."
-            )
-
-
-    # ========================================================
     # UPDATE CERTIFICATE
     # ========================================================
 
@@ -3270,6 +3006,253 @@ if (
 
             st.info(
                 "📭 No certificates available."
+            )
+
+
+    # ========================================================
+    # LINKEDIN UPDATES
+    # ========================================================
+
+    elif admin_menu == "LinkedIn Updates":
+
+        st.subheader(
+            "🔗 LinkedIn Updates"
+        )
+
+        student_lookup = {
+            s["register_no"]: s
+            for s in all_students
+        }
+
+        completed_certificates = [
+            c for c in all_certificates
+            if c["status"] == "Completed"
+        ]
+
+        total_completed_linkedin = len(
+            completed_certificates
+        )
+
+        verified_count = sum(
+            1
+            for c in completed_certificates
+            if get_linkedin_status(c) == "Verified"
+        )
+
+        submitted_count = sum(
+            1
+            for c in completed_certificates
+            if get_linkedin_status(c) == "Submitted"
+        )
+
+        not_updated_count = total_completed_linkedin - (
+            verified_count + submitted_count
+        )
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.metric(
+                "📜 Completed Certificates",
+                total_completed_linkedin
+            )
+
+        with col2:
+            st.metric(
+                "✅ Verified",
+                verified_count
+            )
+
+        with col3:
+            st.metric(
+                "🔗 Posted / Submitted",
+                submitted_count
+            )
+
+        with col4:
+            st.metric(
+                "❌ Not Updated",
+                not_updated_count
+            )
+
+        if total_completed_linkedin > 0:
+            linkedin_progress = (
+                (verified_count + submitted_count)
+                / total_completed_linkedin
+            )
+        else:
+            linkedin_progress = 0
+
+        st.progress(linkedin_progress)
+
+        st.write(
+            f"**{verified_count + submitted_count} / "
+            f"{total_completed_linkedin} completed certificates "
+            f"are marked as LinkedIn updated "
+            f"({linkedin_progress * 100:.0f}%)**"
+        )
+
+        linkedin_rows = []
+
+        for student_item in all_students:
+            student_register = student_item["register_no"]
+
+            student_completed = [
+                c for c in completed_certificates
+                if c["register_no"] == student_register
+            ]
+
+            if not student_completed:
+                continue
+
+            updated_for_student = sum(
+                1
+                for c in student_completed
+                if get_linkedin_status(c)
+                in ["Submitted", "Verified"]
+            )
+
+            linkedin_rows.append({
+                "Register Number": student_register,
+                "Student Name": student_item["name"],
+                "LinkedIn Profile": get_linkedin_profile_url(
+                    student_item
+                ) or "Not Added",
+                "Completed Certificates": len(student_completed),
+                "LinkedIn Updated": updated_for_student,
+                "Pending": (
+                    len(student_completed)
+                    - updated_for_student
+                )
+            })
+
+        if linkedin_rows:
+            st.markdown(
+                "### 👨‍🎓 Student-wise LinkedIn Tracking"
+            )
+
+            linkedin_df = pd.DataFrame(
+                linkedin_rows
+            )
+
+            st.dataframe(
+                linkedin_df,
+                use_container_width=True,
+                hide_index=True
+            )
+
+            st.markdown(
+                "### 📋 Student Details"
+            )
+
+            for student_item in all_students:
+                student_register = student_item["register_no"]
+
+                student_completed = [
+                    c for c in completed_certificates
+                    if c["register_no"] == student_register
+                ]
+
+                if not student_completed:
+                    continue
+
+                student_updated = sum(
+                    1
+                    for c in student_completed
+                    if get_linkedin_status(c)
+                    in ["Submitted", "Verified"]
+                )
+
+                with st.expander(
+                    f"👨‍🎓 {student_item['name']} | "
+                    f"🆔 {student_register} | "
+                    f"🔗 {student_updated}/{len(student_completed)} Updated"
+                ):
+
+                    profile_url = get_linkedin_profile_url(
+                        student_item
+                    )
+
+                    if profile_url:
+                        st.markdown(
+                            f"🔗 [Open LinkedIn Profile]({profile_url})"
+                        )
+                    else:
+                        st.warning(
+                            "⚠️ LinkedIn profile not added by this student."
+                        )
+
+                    for certificate in student_completed:
+                        linkedin_status = get_linkedin_status(
+                            certificate
+                        )
+
+                        c1, c2 = st.columns([4, 2])
+
+                        with c1:
+                            st.write(
+                                f"📜 **{certificate['certificate_name']}**"
+                            )
+
+                            if linkedin_status == "Verified":
+                                st.success(
+                                    "Status: ✅ Verified"
+                                )
+                            elif linkedin_status == "Submitted":
+                                st.info(
+                                    "Status: 🔗 Posted / Submitted"
+                                )
+                            else:
+                                st.warning(
+                                    "Status: ❌ Not Updated"
+                                )
+
+                        with c2:
+                            if linkedin_status == "Submitted":
+                                if st.button(
+                                    "✅ Verify",
+                                    key=f"verify_linkedin_{certificate['id']}"
+                                ):
+                                    try:
+                                        update_linkedin_status(
+                                            certificate["id"],
+                                            "Verified"
+                                        )
+                                        st.success(
+                                            "LinkedIn update verified."
+                                        )
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(
+                                            f"❌ Error: {e}"
+                                        )
+
+                            if linkedin_status in [
+                                "Submitted",
+                                "Verified"
+                            ]:
+                                if st.button(
+                                    "❌ Mark Not Updated",
+                                    key=f"not_updated_linkedin_{certificate['id']}"
+                                ):
+                                    try:
+                                        update_linkedin_status(
+                                            certificate["id"],
+                                            "Not Updated"
+                                        )
+                                        st.success(
+                                            "LinkedIn status updated."
+                                        )
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(
+                                            f"❌ Error: {e}"
+                                        )
+
+                        st.markdown("---")
+        else:
+            st.info(
+                "📭 No completed certificates available for LinkedIn tracking."
             )
 
 
