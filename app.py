@@ -1308,20 +1308,51 @@ if (
 
         if all_students:
 
-            student_options = [
-                f'{s["register_no"]} - {s["name"]}'
-                for s in all_students
-            ]
+            # ------------------------------------------------
+            # ASSIGN TYPE
+            # ------------------------------------------------
 
-            selected_student = st.selectbox(
-                "Select Student",
-                student_options
+            assign_type = st.selectbox(
+                "Assign Certificate To",
+                [
+                    "All Students",
+                    "Individual Student"
+                ]
             )
 
-            selected_register = (
-                selected_student
-                .split(" - ")[0]
-            )
+            # ------------------------------------------------
+            # INDIVIDUAL STUDENT
+            # ------------------------------------------------
+
+            selected_register = None
+
+            if assign_type == "Individual Student":
+
+                student_options = [
+                    f'{s["register_no"]} - {s["name"]}'
+                    for s in all_students
+                ]
+
+                selected_student = st.selectbox(
+                    "Select Student",
+                    student_options
+                )
+
+                selected_register = (
+                    selected_student
+                    .split(" - ")[0]
+                )
+
+            else:
+
+                st.info(
+                    f"📢 This certificate will be assigned "
+                    f"to all {len(all_students)} students."
+                )
+
+            # ------------------------------------------------
+            # CERTIFICATE DETAILS
+            # ------------------------------------------------
 
             certificate_name = st.text_input(
                 "Certificate Name"
@@ -1344,38 +1375,175 @@ if (
                 "➕ Add Certificate"
             ):
 
-                if certificate_name:
+                if certificate_name.strip():
+
+                    certificate_name_clean = (
+                        certificate_name
+                        .strip()
+                    )
+
+                    deadline_value = (
+                        certificate_deadline
+                        .strftime("%Y-%m-%d")
+                    )
 
                     try:
 
-                        (
-                            supabase
-                            .table("certificates")
-                            .insert(
-                                {
-                                    "register_no":
-                                    selected_register,
+                        # ====================================
+                        # ALL STUDENTS
+                        # ====================================
 
-                                    "certificate_name":
-                                    certificate_name.strip(),
+                        if assign_type == "All Students":
 
-                                    "status":
-                                    certificate_status,
-
-                                    "deadline":
-                                    certificate_deadline.strftime(
-                                        "%Y-%m-%d"
-                                    )
-                                }
+                            # Get latest certificate data
+                            latest_certificates = (
+                                get_certificates()
                             )
-                            .execute()
-                        )
 
-                        st.success(
-                            "✅ Certificate added successfully."
-                        )
+                            # Existing certificate pairs
+                            existing_pairs = set()
 
-                        st.rerun()
+                            for certificate in latest_certificates:
+
+                                existing_register = str(
+                                    certificate[
+                                        "register_no"
+                                    ]
+                                ).strip()
+
+                                existing_name = str(
+                                    certificate[
+                                        "certificate_name"
+                                    ]
+                                ).strip().lower()
+
+                                existing_pairs.add(
+                                    (
+                                        existing_register,
+                                        existing_name
+                                    )
+                                )
+
+                            rows_to_insert = []
+
+                            for student in all_students:
+
+                                student_register = (
+                                    str(
+                                        student[
+                                            "register_no"
+                                        ]
+                                    ).strip()
+                                )
+
+                                certificate_key = (
+                                    student_register,
+                                    certificate_name_clean.lower()
+                                )
+
+                                # Avoid duplicate
+                                if certificate_key not in existing_pairs:
+
+                                    rows_to_insert.append(
+                                        {
+                                            "register_no":
+                                            student_register,
+
+                                            "certificate_name":
+                                            certificate_name_clean,
+
+                                            "status":
+                                            certificate_status,
+
+                                            "deadline":
+                                            deadline_value
+                                        }
+                                    )
+
+                            if rows_to_insert:
+
+                                (
+                                    supabase
+                                    .table("certificates")
+                                    .insert(
+                                        rows_to_insert
+                                    )
+                                    .execute()
+                                )
+
+                                st.success(
+                                    f"✅ Certificate added successfully "
+                                    f"to {len(rows_to_insert)} student(s)."
+                                )
+
+                            else:
+
+                                st.warning(
+                                    "⚠️ This certificate already exists "
+                                    "for all students."
+                                )
+
+                            st.rerun()
+
+                        # ====================================
+                        # INDIVIDUAL STUDENT
+                        # ====================================
+
+                        else:
+
+                            latest_certificates = (
+                                get_certificates(
+                                    selected_register
+                                )
+                            )
+
+                            duplicate_exists = any(
+                                str(
+                                    certificate[
+                                        "certificate_name"
+                                    ]
+                                ).strip().lower()
+                                ==
+                                certificate_name_clean.lower()
+                                for certificate
+                                in latest_certificates
+                            )
+
+                            if duplicate_exists:
+
+                                st.warning(
+                                    "⚠️ This certificate already "
+                                    "exists for this student."
+                                )
+
+                            else:
+
+                                (
+                                    supabase
+                                    .table("certificates")
+                                    .insert(
+                                        {
+                                            "register_no":
+                                            selected_register,
+
+                                            "certificate_name":
+                                            certificate_name_clean,
+
+                                            "status":
+                                            certificate_status,
+
+                                            "deadline":
+                                            deadline_value
+                                        }
+                                    )
+                                    .execute()
+                                )
+
+                                st.success(
+                                    "✅ Certificate added successfully."
+                                )
+
+                                st.rerun()
 
                     except Exception as e:
 
