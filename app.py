@@ -116,13 +116,17 @@ def get_linkedin_profile_url(student):
     return student.get("linkedin_profile_url") or ""
 
 
-def update_linkedin_profile(register_no, linkedin_profile_url):
+def update_linkedin_profile(
+    register_no,
+    linkedin_profile_url
+):
 
     (
         supabase
         .table("students")
         .update({
-            "linkedin_profile_url": linkedin_profile_url
+            "linkedin_profile_url":
+            linkedin_profile_url
         })
         .eq(
             "register_no",
@@ -134,10 +138,15 @@ def update_linkedin_profile(register_no, linkedin_profile_url):
 
 def get_linkedin_status(certificate):
 
-    return certificate.get("linkedin_status") or "Not Updated"
+    return certificate.get(
+        "linkedin_status"
+    ) or "Not Updated"
 
 
-def update_linkedin_status(certificate_id, status):
+def update_linkedin_status(
+    certificate_id,
+    status
+):
 
     (
         supabase
@@ -181,7 +190,10 @@ def get_certificates(register_no=None):
 # ACHIEVEMENT BADGES
 # ============================================================
 
-def get_achievement_badge(completed, total):
+def get_achievement_badge(
+    completed,
+    total
+):
 
     if total == 0:
 
@@ -232,7 +244,9 @@ def get_achievement_badge(completed, total):
 # REGISTER NUMBER SORTING
 # ============================================================
 
-def get_numeric_register_number(register_no):
+def get_numeric_register_number(
+    register_no
+):
 
     try:
 
@@ -274,6 +288,78 @@ def storage_file_path(
         + "_"
         + original_name
     )
+
+
+# ============================================================
+# FIND UPLOADED CERTIFICATE
+# ============================================================
+
+def find_uploaded_certificate(
+    register_no,
+    certificate_name
+):
+
+    try:
+
+        storage_files = (
+            supabase
+            .storage
+            .from_(STORAGE_BUCKET)
+            .list()
+        )
+
+        safe_name = (
+            certificate_name
+            .replace(" ", "_")
+        )
+
+        prefix = (
+            register_no
+            + "_"
+            + safe_name
+            + "_"
+        )
+
+        for file_info in storage_files:
+
+            file_name = file_info.get(
+                "name"
+            )
+
+            if (
+                file_name
+                and file_name.startswith(prefix)
+            ):
+
+                return file_name
+
+        return None
+
+    except:
+
+        return None
+
+
+# ============================================================
+# GET PUBLIC CERTIFICATE URL
+# ============================================================
+
+def get_certificate_public_url(
+    file_name
+):
+
+    try:
+
+        return (
+            supabase
+            .storage
+            .from_(STORAGE_BUCKET)
+            .get_public_url(file_name)
+        )
+
+    except:
+
+        return None
 
 
 # ============================================================
@@ -522,7 +608,9 @@ if not st.session_state.logged_in:
 
                 if student:
 
-                    stored_password = student["password"]
+                    stored_password = (
+                        student["password"]
+                    )
 
                     if verify_password(
                         password,
@@ -691,7 +779,9 @@ if (
                 """
             )
 
-        total_certificates = len(certificates)
+        total_certificates = len(
+            certificates
+        )
 
         completed_certificates = sum(
             1
@@ -770,9 +860,11 @@ if (
         # ACHIEVEMENT BADGE
         # ====================================================
 
-        badge_name, badge_message = get_achievement_badge(
-            completed_certificates,
-            total_certificates
+        badge_name, badge_message = (
+            get_achievement_badge(
+                completed_certificates,
+                total_certificates
+            )
         )
 
         st.markdown(
@@ -854,8 +946,10 @@ if (
             "### 🔗 LinkedIn Profile"
         )
 
-        current_linkedin_profile = get_linkedin_profile_url(
-            student
+        current_linkedin_profile = (
+            get_linkedin_profile_url(
+                student
+            )
         )
 
         linkedin_profile_url = st.text_input(
@@ -869,38 +963,59 @@ if (
             "💾 Save LinkedIn Profile",
             use_container_width=True
         ):
-            profile_url = linkedin_profile_url.strip()
 
-            # Automatically add https:// if the student does not enter it
-            if profile_url and not profile_url.startswith(("http://", "https://")):
-                profile_url = "https://" + profile_url
+            profile_url = (
+                linkedin_profile_url.strip()
+            )
 
-            # Validate LinkedIn profile URL
-            if profile_url and not (
-                profile_url.startswith("https://www.linkedin.com/in/")
-                or profile_url.startswith("https://linkedin.com/in/")
+            if profile_url and not profile_url.startswith(
+                ("http://", "https://")
             ):
+
+                profile_url = (
+                    "https://"
+                    + profile_url
+                )
+
+            if profile_url and not (
+                profile_url.startswith(
+                    "https://www.linkedin.com/in/"
+                )
+                or profile_url.startswith(
+                    "https://linkedin.com/in/"
+                )
+            ):
+
                 st.error(
                     "❌ Please enter a valid LinkedIn profile URL."
                 )
+
             else:
+
                 try:
+
                     update_linkedin_profile(
                         register_no,
                         profile_url or None
                     )
+
                     st.success(
                         "✅ LinkedIn profile saved successfully."
                     )
+
                     st.rerun()
+
                 except Exception as e:
+
                     st.error(
                         f"❌ Unable to save LinkedIn profile: {e}"
                     )
 
         if current_linkedin_profile:
+
             st.markdown(
-                f"🔗 [Open My LinkedIn Profile]({current_linkedin_profile})"
+                f"🔗 [Open My LinkedIn Profile]"
+                f"({current_linkedin_profile})"
             )
 
         # ====================================================
@@ -908,7 +1023,8 @@ if (
         # ====================================================
 
         completed_for_linkedin = [
-            c for c in certificates
+            c
+            for c in certificates
             if c["status"] == "Completed"
         ]
 
@@ -917,74 +1033,116 @@ if (
         )
 
         if current_linkedin_profile:
+
             st.caption(
-                "Your LinkedIn profile is saved above. Mark each completed certificate that you have posted on LinkedIn."
+                "Your LinkedIn profile is saved above. "
+                "Mark each completed certificate that "
+                "you have posted on LinkedIn."
             )
 
             if completed_for_linkedin:
+
                 for certificate in completed_for_linkedin:
-                    linkedin_status = get_linkedin_status(
-                        certificate
+
+                    linkedin_status = (
+                        get_linkedin_status(
+                            certificate
+                        )
                     )
 
-                    col1, col2 = st.columns([4, 1])
+                    col1, col2 = st.columns(
+                        [4, 1]
+                    )
 
                     with col1:
+
                         if linkedin_status == "Verified":
+
                             st.success(
-                                f"📜 {certificate['certificate_name']} — ✅ Verified"
+                                f"📜 {certificate['certificate_name']} "
+                                f"— ✅ Verified"
                             )
+
                         elif linkedin_status == "Submitted":
+
                             st.info(
-                                f"📜 {certificate['certificate_name']} — 🔗 Posted / Submitted"
+                                f"📜 {certificate['certificate_name']} "
+                                f"— 🔗 Posted / Submitted"
                             )
+
                         else:
+
                             st.warning(
-                                f"📜 {certificate['certificate_name']} — ❌ Not Updated"
+                                f"📜 {certificate['certificate_name']} "
+                                f"— ❌ Not Updated"
                             )
 
                     with col2:
+
                         if linkedin_status in [
                             "Not Updated",
                             None
                         ]:
+
                             if st.button(
                                 "Mark Posted",
                                 key=f"linkedin_posted_{certificate['id']}"
                             ):
+
                                 try:
+
                                     update_linkedin_status(
                                         certificate["id"],
                                         "Submitted"
                                     )
+
                                     st.rerun()
+
                                 except Exception as e:
+
                                     st.error(
                                         f"❌ Error: {e}"
                                     )
+
                         else:
+
                             if st.button(
                                 "Undo",
                                 key=f"linkedin_undo_{certificate['id']}"
                             ):
+
                                 try:
+
                                     update_linkedin_status(
                                         certificate["id"],
                                         "Not Updated"
                                     )
+
                                     st.rerun()
+
                                 except Exception as e:
+
                                     st.error(
                                         f"❌ Error: {e}"
                                     )
+
             else:
+
                 st.info(
-                    "📭 Complete a certificate first to track its LinkedIn update."
+                    "📭 Complete a certificate first "
+                    "to track its LinkedIn update."
                 )
+
         else:
+
             st.info(
-                "🔗 Add your LinkedIn profile URL above to start LinkedIn tracking."
+                "🔗 Add your LinkedIn profile URL above "
+                "to start LinkedIn tracking."
             )
+
+        # ====================================================
+        # CERTIFICATE DETAILS
+        # ====================================================
 
         st.markdown(
             "### 📋 Certificate Details"
@@ -1148,10 +1306,12 @@ if (
                             key=f"upload_btn_{certificate['id']}"
                         ):
 
-                            file_path = storage_file_path(
-                                register_no,
-                                certificate_name,
-                                uploaded_file.name
+                            file_path = (
+                                storage_file_path(
+                                    register_no,
+                                    certificate_name,
+                                    uploaded_file.name
+                                )
                             )
 
                             file_bytes = (
@@ -1320,7 +1480,8 @@ if (
         if all_students:
 
             st.info(
-                f"👨‍🎓 {len(all_students)} student(s) already registered."
+                f"👨‍🎓 {len(all_students)} "
+                f"student(s) already registered."
             )
 
         new_register_no = st.text_input(
@@ -1495,10 +1656,6 @@ if (
 
         if all_students:
 
-            # ------------------------------------------------
-            # ASSIGN TYPE
-            # ------------------------------------------------
-
             assign_type = st.selectbox(
                 "Assign Certificate To",
                 [
@@ -1506,10 +1663,6 @@ if (
                     "Individual Student"
                 ]
             )
-
-            # ------------------------------------------------
-            # INDIVIDUAL STUDENT
-            # ------------------------------------------------
 
             selected_register = None
 
@@ -1537,10 +1690,6 @@ if (
                     f"to all {len(all_students)} students."
                 )
 
-            # ------------------------------------------------
-            # CERTIFICATE DETAILS
-            # ------------------------------------------------
-
             certificate_name = st.text_input(
                 "Certificate Name"
             )
@@ -1565,8 +1714,7 @@ if (
                 if certificate_name.strip():
 
                     certificate_name_clean = (
-                        certificate_name
-                        .strip()
+                        certificate_name.strip()
                     )
 
                     deadline_value = (
@@ -1576,18 +1724,12 @@ if (
 
                     try:
 
-                        # ====================================
-                        # ALL STUDENTS
-                        # ====================================
-
                         if assign_type == "All Students":
 
-                            # Get latest certificate data
                             latest_certificates = (
                                 get_certificates()
                             )
 
-                            # Existing certificate pairs
                             existing_pairs = set()
 
                             for certificate in latest_certificates:
@@ -1615,20 +1757,17 @@ if (
 
                             for student in all_students:
 
-                                student_register = (
-                                    str(
-                                        student[
-                                            "register_no"
-                                        ]
-                                    ).strip()
-                                )
+                                student_register = str(
+                                    student[
+                                        "register_no"
+                                    ]
+                                ).strip()
 
                                 certificate_key = (
                                     student_register,
                                     certificate_name_clean.lower()
                                 )
 
-                                # Avoid duplicate
                                 if certificate_key not in existing_pairs:
 
                                     rows_to_insert.append(
@@ -1671,10 +1810,6 @@ if (
                                 )
 
                             st.rerun()
-
-                        # ====================================
-                        # INDIVIDUAL STUDENT
-                        # ====================================
 
                         else:
 
@@ -1968,10 +2103,8 @@ if (
                     )
 
                     if (
-                        search_lower
-                        not in register.lower()
-                        and search_lower
-                        not in name.lower()
+                        search_lower not in register.lower()
+                        and search_lower not in name.lower()
                     ):
 
                         continue
@@ -2000,8 +2133,7 @@ if (
 
                     matching_certificates = [
                         certificate
-                        for certificate
-                        in student_certificates
+                        for certificate in student_certificates
                         if certificate[
                             "certificate_name"
                         ]
@@ -2030,28 +2162,22 @@ if (
                         )
 
                         if (
-                            selected_status
-                            == "Completed"
-                            and certificate_status
-                            == "Completed"
+                            selected_status == "Completed"
+                            and certificate_status == "Completed"
                         ):
 
                             status_match = True
 
                         elif (
-                            selected_status
-                            == "Pending"
-                            and certificate_status
-                            == "Pending"
+                            selected_status == "Pending"
+                            and certificate_status == "Pending"
                         ):
 
                             status_match = True
 
                         elif (
-                            selected_status
-                            == "Not Updated"
-                            and certificate_status
-                            == "Status"
+                            selected_status == "Not Updated"
+                            and certificate_status == "Status"
                         ):
 
                             status_match = True
@@ -2066,8 +2192,7 @@ if (
 
                 completed = sum(
                     1
-                    for certificate
-                    in student_certificates
+                    for certificate in student_certificates
                     if certificate[
                         "status"
                     ] == "Completed"
@@ -2075,8 +2200,7 @@ if (
 
                 pending = sum(
                     1
-                    for certificate
-                    in student_certificates
+                    for certificate in student_certificates
                     if certificate[
                         "status"
                     ] == "Pending"
@@ -2084,8 +2208,7 @@ if (
 
                 not_updated = sum(
                     1
-                    for certificate
-                    in student_certificates
+                    for certificate in student_certificates
                     if certificate[
                         "status"
                     ] == "Status"
@@ -2207,8 +2330,7 @@ if (
 
                     student_certificate_data = [
                         certificate
-                        for certificate
-                        in all_certificates
+                        for certificate in all_certificates
                         if certificate[
                             "register_no"
                         ] == student_register
@@ -2373,63 +2495,229 @@ if (
 
                         for certificate in student_certificates:
 
-                            if certificate["status"] == "Completed":
+                            certificate_name = (
+                                certificate[
+                                    "certificate_name"
+                                ]
+                            )
+
+                            certificate_status = (
+                                certificate[
+                                    "status"
+                                ]
+                            )
+
+                            certificate_deadline = (
+                                certificate[
+                                    "deadline"
+                                ]
+                            )
+
+                            # ====================================
+                            # COMPLETED CERTIFICATE
+                            # ====================================
+
+                            if certificate_status == "Completed":
 
                                 st.success(
                                     f"""
-                                    📜 **{
-                                        certificate[
-                                            "certificate_name"
-                                        ]
-                                    }**
+                                    📜 **{certificate_name}**
 
                                     Status: ✅ Completed
 
-                                    Deadline: {
-                                        certificate[
-                                            "deadline"
-                                        ]
-                                    }
+                                    Deadline: {certificate_deadline}
                                     """
                                 )
 
-                            elif certificate["status"] == "Pending":
+                                # --------------------------------
+                                # VIEW CERTIFICATE BUTTON
+                                # --------------------------------
+
+                                view_key = (
+                                    f"view_certificate_"
+                                    f"{certificate['id']}"
+                                )
+
+                                if st.button(
+                                    "👁️ View Certificate",
+                                    key=view_key,
+                                    use_container_width=True
+                                ):
+
+                                    uploaded_file_name = (
+                                        find_uploaded_certificate(
+                                            student_register,
+                                            certificate_name
+                                        )
+                                    )
+
+                                    if uploaded_file_name:
+
+                                        st.success(
+                                            "✅ Uploaded certificate found."
+                                        )
+
+                                        file_extension = (
+                                            uploaded_file_name
+                                            .split(".")[-1]
+                                            .lower()
+                                        )
+
+                                        # ============================
+                                        # PDF PREVIEW
+                                        # ============================
+
+                                        if file_extension == "pdf":
+
+                                            try:
+
+                                                file_bytes = (
+                                                    supabase
+                                                    .storage
+                                                    .from_(
+                                                        STORAGE_BUCKET
+                                                    )
+                                                    .download(
+                                                        uploaded_file_name
+                                                    )
+                                                )
+
+                                                st.download_button(
+                                                    "⬇️ Download Certificate",
+                                                    data=file_bytes,
+                                                    file_name=uploaded_file_name,
+                                                    key=(
+                                                        f"download_overview_"
+                                                        f"{certificate['id']}"
+                                                    )
+                                                )
+
+                                                pdf_url = (
+                                                    get_certificate_public_url(
+                                                        uploaded_file_name
+                                                    )
+                                                )
+
+                                                if pdf_url:
+
+                                                    st.markdown(
+                                                        f"""
+                                                        <iframe
+                                                            src="{pdf_url}"
+                                                            width="100%"
+                                                            height="700"
+                                                            style="
+                                                                border:1px solid #ddd;
+                                                                border-radius:10px;
+                                                            "
+                                                        ></iframe>
+                                                        """,
+                                                        unsafe_allow_html=True
+                                                    )
+
+                                                else:
+
+                                                    st.warning(
+                                                        "⚠️ Unable to create "
+                                                        "certificate preview URL."
+                                                    )
+
+                                            except Exception as e:
+
+                                                st.error(
+                                                    f"❌ Unable to view certificate: {e}"
+                                                )
+
+                                        # ============================
+                                        # IMAGE PREVIEW
+                                        # ============================
+
+                                        elif file_extension in [
+                                            "png",
+                                            "jpg",
+                                            "jpeg"
+                                        ]:
+
+                                            try:
+
+                                                file_bytes = (
+                                                    supabase
+                                                    .storage
+                                                    .from_(
+                                                        STORAGE_BUCKET
+                                                    )
+                                                    .download(
+                                                        uploaded_file_name
+                                                    )
+                                                )
+
+                                                st.image(
+                                                    file_bytes,
+                                                    caption=(
+                                                        "Uploaded Certificate"
+                                                    ),
+                                                    use_container_width=True
+                                                )
+
+                                                st.download_button(
+                                                    "⬇️ Download Certificate",
+                                                    data=file_bytes,
+                                                    file_name=uploaded_file_name,
+                                                    key=(
+                                                        f"download_overview_"
+                                                        f"{certificate['id']}"
+                                                    )
+                                                )
+
+                                            except Exception as e:
+
+                                                st.error(
+                                                    f"❌ Unable to view certificate: {e}"
+                                                )
+
+                                        else:
+
+                                            st.warning(
+                                                "⚠️ This file type "
+                                                "cannot be previewed."
+                                            )
+
+                                    else:
+
+                                        st.warning(
+                                            "⚠️ Certificate has not "
+                                            "been uploaded by the student yet."
+                                        )
+
+                            # ====================================
+                            # PENDING CERTIFICATE
+                            # ====================================
+
+                            elif certificate_status == "Pending":
 
                                 st.warning(
                                     f"""
-                                    📜 **{
-                                        certificate[
-                                            "certificate_name"
-                                        ]
-                                    }**
+                                    📜 **{certificate_name}**
 
                                     Status: ⏳ Pending
 
-                                    Deadline: {
-                                        certificate[
-                                            "deadline"
-                                        ]
-                                    }
+                                    Deadline: {certificate_deadline}
                                     """
                                 )
+
+                            # ====================================
+                            # NOT UPDATED CERTIFICATE
+                            # ====================================
 
                             else:
 
                                 st.info(
                                     f"""
-                                    📜 **{
-                                        certificate[
-                                            "certificate_name"
-                                        ]
-                                    }**
+                                    📜 **{certificate_name}**
 
                                     Status: ❓ Not Updated
 
-                                    Deadline: {
-                                        certificate[
-                                            "deadline"
-                                        ]
-                                    }
+                                    Deadline: {certificate_deadline}
                                     """
                                 )
 
@@ -2954,8 +3242,7 @@ if (
                     ].index(
                         current_status
                     )
-                    if current_status
-                    in [
+                    if current_status in [
                         "Status",
                         "Pending",
                         "Completed"
@@ -3050,45 +3337,61 @@ if (
             if get_linkedin_status(c) == "Submitted"
         )
 
-        not_updated_count = total_completed_linkedin - (
-            verified_count + submitted_count
+        not_updated_count = (
+            total_completed_linkedin
+            - (
+                verified_count
+                + submitted_count
+            )
         )
 
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
+
             st.metric(
                 "📜 Completed Certificates",
                 total_completed_linkedin
             )
 
         with col2:
+
             st.metric(
                 "✅ Verified",
                 verified_count
             )
 
         with col3:
+
             st.metric(
                 "🔗 Posted / Submitted",
                 submitted_count
             )
 
         with col4:
+
             st.metric(
                 "❌ Not Updated",
                 not_updated_count
             )
 
         if total_completed_linkedin > 0:
+
             linkedin_progress = (
-                (verified_count + submitted_count)
+                (
+                    verified_count
+                    + submitted_count
+                )
                 / total_completed_linkedin
             )
+
         else:
+
             linkedin_progress = 0
 
-        st.progress(linkedin_progress)
+        st.progress(
+            linkedin_progress
+        )
 
         st.write(
             f"**{verified_count + submitted_count} / "
@@ -3100,38 +3403,62 @@ if (
         linkedin_rows = []
 
         for student_item in all_students:
-            student_register = student_item["register_no"]
+
+            student_register = (
+                student_item["register_no"]
+            )
 
             student_completed = [
-                c for c in completed_certificates
-                if c["register_no"] == student_register
+                c
+                for c in completed_certificates
+                if c["register_no"]
+                == student_register
             ]
 
             if not student_completed:
+
                 continue
 
             updated_for_student = sum(
                 1
                 for c in student_completed
                 if get_linkedin_status(c)
-                in ["Submitted", "Verified"]
+                in [
+                    "Submitted",
+                    "Verified"
+                ]
             )
 
-            linkedin_rows.append({
-                "Register Number": student_register,
-                "Student Name": student_item["name"],
-                "LinkedIn Profile": get_linkedin_profile_url(
-                    student_item
-                ) or "Not Added",
-                "Completed Certificates": len(student_completed),
-                "LinkedIn Updated": updated_for_student,
-                "Pending": (
-                    len(student_completed)
-                    - updated_for_student
-                )
-            })
+            linkedin_rows.append(
+                {
+                    "Register Number":
+                    student_register,
+
+                    "Student Name":
+                    student_item["name"],
+
+                    "LinkedIn Profile":
+                    get_linkedin_profile_url(
+                        student_item
+                    )
+                    or "Not Added",
+
+                    "Completed Certificates":
+                    len(student_completed),
+
+                    "LinkedIn Updated":
+                    updated_for_student,
+
+                    "Pending":
+                    (
+                        len(student_completed)
+                        - updated_for_student
+                    )
+                }
+            )
 
         if linkedin_rows:
+
             st.markdown(
                 "### 👨‍🎓 Student-wise LinkedIn Tracking"
             )
@@ -3151,83 +3478,121 @@ if (
             )
 
             for student_item in all_students:
-                student_register = student_item["register_no"]
+
+                student_register = (
+                    student_item["register_no"]
+                )
 
                 student_completed = [
-                    c for c in completed_certificates
-                    if c["register_no"] == student_register
+                    c
+                    for c in completed_certificates
+                    if c["register_no"]
+                    == student_register
                 ]
 
                 if not student_completed:
+
                     continue
 
                 student_updated = sum(
                     1
                     for c in student_completed
                     if get_linkedin_status(c)
-                    in ["Submitted", "Verified"]
+                    in [
+                        "Submitted",
+                        "Verified"
+                    ]
                 )
 
                 with st.expander(
                     f"👨‍🎓 {student_item['name']} | "
                     f"🆔 {student_register} | "
-                    f"🔗 {student_updated}/{len(student_completed)} Updated"
+                    f"🔗 {student_updated}/"
+                    f"{len(student_completed)} Updated"
                 ):
 
-                    profile_url = get_linkedin_profile_url(
-                        student_item
+                    profile_url = (
+                        get_linkedin_profile_url(
+                            student_item
+                        )
                     )
 
                     if profile_url:
+
                         st.markdown(
-                            f"🔗 [Open LinkedIn Profile]({profile_url})"
+                            f"🔗 [Open LinkedIn Profile]"
+                            f"({profile_url})"
                         )
+
                     else:
+
                         st.warning(
                             "⚠️ LinkedIn profile not added by this student."
                         )
 
                     for certificate in student_completed:
-                        linkedin_status = get_linkedin_status(
-                            certificate
+
+                        linkedin_status = (
+                            get_linkedin_status(
+                                certificate
+                            )
                         )
 
-                        c1, c2 = st.columns([4, 2])
+                        c1, c2 = st.columns(
+                            [4, 2]
+                        )
 
                         with c1:
+
                             st.write(
                                 f"📜 **{certificate['certificate_name']}**"
                             )
 
                             if linkedin_status == "Verified":
+
                                 st.success(
                                     "Status: ✅ Verified"
                                 )
+
                             elif linkedin_status == "Submitted":
+
                                 st.info(
                                     "Status: 🔗 Posted / Submitted"
                                 )
+
                             else:
+
                                 st.warning(
                                     "Status: ❌ Not Updated"
                                 )
 
                         with c2:
+
                             if linkedin_status == "Submitted":
+
                                 if st.button(
                                     "✅ Verify",
-                                    key=f"verify_linkedin_{certificate['id']}"
+                                    key=(
+                                        f"verify_linkedin_"
+                                        f"{certificate['id']}"
+                                    )
                                 ):
+
                                     try:
+
                                         update_linkedin_status(
                                             certificate["id"],
                                             "Verified"
                                         )
+
                                         st.success(
                                             "LinkedIn update verified."
                                         )
+
                                         st.rerun()
+
                                     except Exception as e:
+
                                         st.error(
                                             f"❌ Error: {e}"
                                         )
@@ -3236,28 +3601,41 @@ if (
                                 "Submitted",
                                 "Verified"
                             ]:
+
                                 if st.button(
                                     "❌ Mark Not Updated",
-                                    key=f"not_updated_linkedin_{certificate['id']}"
+                                    key=(
+                                        f"not_updated_linkedin_"
+                                        f"{certificate['id']}"
+                                    )
                                 ):
+
                                     try:
+
                                         update_linkedin_status(
                                             certificate["id"],
                                             "Not Updated"
                                         )
+
                                         st.success(
                                             "LinkedIn status updated."
                                         )
+
                                         st.rerun()
+
                                     except Exception as e:
+
                                         st.error(
                                             f"❌ Error: {e}"
                                         )
 
                         st.markdown("---")
+
         else:
+
             st.info(
-                "📭 No completed certificates available for LinkedIn tracking."
+                "📭 No completed certificates available "
+                "for LinkedIn tracking."
             )
 
 
@@ -3322,7 +3700,10 @@ if (
                                     "⬇️ Download File",
                                     data=file_bytes,
                                     file_name=file_name,
-                                    key=f"download_{file_name}"
+                                    key=(
+                                        f"download_"
+                                        f"{file_name}"
+                                    )
                                 )
 
                             except Exception as e:
