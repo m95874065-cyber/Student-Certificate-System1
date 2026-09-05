@@ -105,7 +105,6 @@ def get_student(register_no):
     )
 
     if response.data:
-
         return response.data[0]
 
     return None
@@ -458,17 +457,12 @@ st.markdown(
 # ============================================================
 
 if "logged_in" not in st.session_state:
-
     st.session_state.logged_in = False
 
-
 if "user_type" not in st.session_state:
-
     st.session_state.user_type = None
 
-
 if "register_no" not in st.session_state:
-
     st.session_state.register_no = None
 
 
@@ -1282,6 +1276,10 @@ if (
 
                     pass
 
+                # ====================================================
+                # CERTIFICATE UPLOAD
+                # ====================================================
+
                 if status == "Completed":
 
                     st.markdown(
@@ -1335,7 +1333,11 @@ if (
                                         {
                                             "content-type":
                                             content_type,
-                                            "upsert": True
+
+                                            # FIX:
+                                            # Supabase Python SDK
+                                            # expects string value here
+                                            "upsert": "true"
                                         }
                                     )
                                 )
@@ -2513,10 +2515,6 @@ if (
                                 ]
                             )
 
-                            # ====================================
-                            # COMPLETED CERTIFICATE
-                            # ====================================
-
                             if certificate_status == "Completed":
 
                                 st.success(
@@ -2528,10 +2526,6 @@ if (
                                     Deadline: {certificate_deadline}
                                     """
                                 )
-
-                                # --------------------------------
-                                # VIEW CERTIFICATE BUTTON
-                                # --------------------------------
 
                                 view_key = (
                                     f"view_certificate_"
@@ -2562,10 +2556,6 @@ if (
                                             .split(".")[-1]
                                             .lower()
                                         )
-
-                                        # ============================
-                                        # PDF PREVIEW
-                                        # ============================
 
                                         if file_extension == "pdf":
 
@@ -2628,10 +2618,6 @@ if (
                                                     f"❌ Unable to view certificate: {e}"
                                                 )
 
-                                        # ============================
-                                        # IMAGE PREVIEW
-                                        # ============================
-
                                         elif file_extension in [
                                             "png",
                                             "jpg",
@@ -2689,10 +2675,6 @@ if (
                                             "been uploaded by the student yet."
                                         )
 
-                            # ====================================
-                            # PENDING CERTIFICATE
-                            # ====================================
-
                             elif certificate_status == "Pending":
 
                                 st.warning(
@@ -2704,10 +2686,6 @@ if (
                                     Deadline: {certificate_deadline}
                                     """
                                 )
-
-                            # ====================================
-                            # NOT UPDATED CERTIFICATE
-                            # ====================================
 
                             else:
 
@@ -3416,7 +3394,6 @@ if (
             ]
 
             if not student_completed:
-
                 continue
 
             updated_for_student = sum(
@@ -3491,7 +3468,6 @@ if (
                 ]
 
                 if not student_completed:
-
                     continue
 
                 student_updated = sum(
@@ -3667,7 +3643,6 @@ if (
                     )
 
                     if not file_name:
-
                         continue
 
                     st.markdown(
