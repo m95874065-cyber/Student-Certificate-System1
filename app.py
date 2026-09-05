@@ -871,6 +871,11 @@ if (
         ):
             profile_url = linkedin_profile_url.strip()
 
+            # Automatically add https:// if the student does not enter it
+            if profile_url and not profile_url.startswith(("http://", "https://")):
+                profile_url = "https://" + profile_url
+
+            # Validate LinkedIn profile URL
             if profile_url and not (
                 profile_url.startswith("https://www.linkedin.com/in/")
                 or profile_url.startswith("https://linkedin.com/in/")
