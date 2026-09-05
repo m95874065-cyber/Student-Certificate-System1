@@ -143,6 +143,10 @@ def get_linkedin_url(certificate):
     return certificate.get("linkedin_url") or ""
 
 
+def get_linkedin_profile_url(student):
+    return student.get("linkedin_profile_url") or ""
+
+
 def update_linkedin_submission(certificate_id, linkedin_url):
     (
         supabase
