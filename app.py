@@ -1415,7 +1415,6 @@ if (
             == student_register
         ]
 
-        # No certificates assigned
         if not student_certificates:
 
             total_not_updated += 1
@@ -1427,7 +1426,6 @@ if (
             for certificate in student_certificates
         ]
 
-        # Student completed all assigned certificates
         if all(
             status == "Completed"
             for status in statuses
@@ -1435,7 +1433,6 @@ if (
 
             total_completed += 1
 
-        # Student has at least one pending certificate
         elif any(
             status == "Pending"
             for status in statuses
@@ -1443,7 +1440,6 @@ if (
 
             total_pending += 1
 
-        # Student has only Status / Not Updated
         else:
 
             total_not_updated += 1
@@ -1478,6 +1474,361 @@ if (
             "❓ Not Updated",
             total_not_updated
         )
+
+    # ========================================================
+    # NEW ADMIN FEATURE 1
+    # CERTIFICATE COMPLETION OVERVIEW
+    # ========================================================
+
+    st.markdown("---")
+
+    st.markdown(
+        "### 📊 Certificate Completion Overview"
+    )
+
+    if all_certificates:
+
+        overview_rows = []
+
+        certificate_names = sorted(
+            set(
+                str(
+                    certificate["certificate_name"]
+                ).strip()
+                for certificate in all_certificates
+            )
+        )
+
+        for certificate_name in certificate_names:
+
+            certificate_data = [
+                certificate
+                for certificate in all_certificates
+                if str(
+                    certificate["certificate_name"]
+                ).strip()
+                == certificate_name
+            ]
+
+            completed_count = sum(
+                1
+                for certificate in certificate_data
+                if certificate["status"] == "Completed"
+            )
+
+            pending_count = sum(
+                1
+                for certificate in certificate_data
+                if certificate["status"] == "Pending"
+            )
+
+            not_updated_count = sum(
+                1
+                for certificate in certificate_data
+                if certificate["status"] == "Status"
+            )
+
+            overview_rows.append(
+                {
+                    "Certificate":
+                    certificate_name,
+
+                    "Completed":
+                    completed_count,
+
+                    "Pending":
+                    pending_count,
+
+                    "Not Updated":
+                    not_updated_count,
+
+                    "Total Students":
+                    len(certificate_data)
+                }
+            )
+
+        overview_df = pd.DataFrame(
+            overview_rows
+        )
+
+        st.dataframe(
+            overview_df,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        overview_chart_df = overview_df.melt(
+            id_vars=["Certificate"],
+            value_vars=[
+                "Completed",
+                "Pending",
+                "Not Updated"
+            ],
+            var_name="Status",
+            value_name="Students"
+        )
+
+        fig_overview = px.bar(
+            overview_chart_df,
+            x="Certificate",
+            y="Students",
+            color="Status",
+            barmode="group",
+            title="Certificate-wise Completion Status"
+        )
+
+        fig_overview.update_layout(
+            height=450,
+            xaxis_title="Certificate",
+            yaxis_title="Number of Students",
+            margin=dict(
+                l=20,
+                r=20,
+                t=60,
+                b=80
+            )
+        )
+
+        st.plotly_chart(
+            fig_overview,
+            use_container_width=True
+        )
+
+    else:
+
+        st.info(
+            "📭 No certificates available for overview."
+        )
+
+
+    # ========================================================
+    # NEW ADMIN FEATURE 2
+    # ATTENTION REQUIRED
+    # ========================================================
+
+    st.markdown("---")
+
+    st.markdown(
+        "### ⚠️ Attention Required"
+    )
+
+    today = datetime.today().date()
+
+    pending_certificate_count = 0
+    not_updated_certificate_count = 0
+    upcoming_deadline_count = 0
+    expired_deadline_count = 0
+
+    pending_students_set = set()
+    not_updated_students_set = set()
+
+    upcoming_deadline_rows = []
+    expired_deadline_rows = []
+
+    for certificate in all_certificates:
+
+        certificate_status = (
+            certificate["status"]
+        )
+
+        register_no = (
+            certificate["register_no"]
+        )
+
+        certificate_name = (
+            certificate["certificate_name"]
+        )
+
+        deadline = (
+            certificate["deadline"]
+        )
+
+        if certificate_status == "Pending":
+
+            pending_certificate_count += 1
+
+            pending_students_set.add(
+                register_no
+            )
+
+        elif certificate_status == "Status":
+
+            not_updated_certificate_count += 1
+
+            not_updated_students_set.add(
+                register_no
+            )
+
+        try:
+
+            deadline_date = datetime.strptime(
+                deadline,
+                "%Y-%m-%d"
+            ).date()
+
+            days_left = (
+                deadline_date - today
+            ).days
+
+            if certificate_status != "Completed":
+
+                if 0 <= days_left <= 7:
+
+                    upcoming_deadline_count += 1
+
+                    upcoming_deadline_rows.append(
+                        {
+                            "Register Number":
+                            register_no,
+
+                            "Certificate":
+                            certificate_name,
+
+                            "Deadline":
+                            deadline,
+
+                            "Days Left":
+                            days_left,
+
+                            "Status":
+                            (
+                                "Pending"
+                                if certificate_status == "Pending"
+                                else "Not Updated"
+                            )
+                        }
+                    )
+
+                elif days_left < 0:
+
+                    expired_deadline_count += 1
+
+                    expired_deadline_rows.append(
+                        {
+                            "Register Number":
+                            register_no,
+
+                            "Certificate":
+                            certificate_name,
+
+                            "Deadline":
+                            deadline,
+
+                            "Days Overdue":
+                            abs(days_left),
+
+                            "Status":
+                            (
+                                "Pending"
+                                if certificate_status == "Pending"
+                                else "Not Updated"
+                            )
+                        }
+                    )
+
+        except:
+
+            pass
+
+
+    attention_col1, attention_col2, attention_col3, attention_col4 = (
+        st.columns(4)
+    )
+
+    with attention_col1:
+
+        st.metric(
+            "⏳ Pending Certificates",
+            pending_certificate_count
+        )
+
+    with attention_col2:
+
+        st.metric(
+            "❓ Not Updated",
+            not_updated_certificate_count
+        )
+
+    with attention_col3:
+
+        st.metric(
+            "📅 Deadline ≤ 7 Days",
+            upcoming_deadline_count
+        )
+
+    with attention_col4:
+
+        st.metric(
+            "🚨 Expired",
+            expired_deadline_count
+        )
+
+    if pending_students_set:
+
+        st.warning(
+            f"⚠️ {len(pending_students_set)} "
+            f"student(s) have pending certificates."
+        )
+
+    if not_updated_students_set:
+
+        st.info(
+            f"❓ {len(not_updated_students_set)} "
+            f"student(s) have certificates that are not updated."
+        )
+
+    if upcoming_deadline_rows:
+
+        st.markdown(
+            "#### 📅 Upcoming Deadlines"
+        )
+
+        upcoming_df = pd.DataFrame(
+            upcoming_deadline_rows
+        )
+
+        upcoming_df = upcoming_df.sort_values(
+            by="Days Left"
+        )
+
+        st.dataframe(
+            upcoming_df,
+            use_container_width=True,
+            hide_index=True
+        )
+
+    if expired_deadline_rows:
+
+        st.markdown(
+            "#### 🚨 Expired Certificates"
+        )
+
+        expired_df = pd.DataFrame(
+            expired_deadline_rows
+        )
+
+        expired_df = expired_df.sort_values(
+            by="Days Overdue",
+            ascending=False
+        )
+
+        st.dataframe(
+            expired_df,
+            use_container_width=True,
+            hide_index=True
+        )
+
+    if (
+        not pending_students_set
+        and not not_updated_students_set
+        and not upcoming_deadline_rows
+        and not expired_deadline_rows
+    ):
+
+        st.success(
+            "🎉 No immediate attention required."
+        )
+
 
     st.markdown("---")
 
